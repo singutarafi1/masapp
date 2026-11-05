@@ -299,6 +299,9 @@ export function RepairTab() {
       {/* Top Filter and Controls Bar */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
         <div className="max-w-5xl mx-auto space-y-3">
+
+
+          {/* Search & Action Bar */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -306,26 +309,26 @@ export function RepairTab() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="🔍 VR နံပါတ် / အမည် / ဖုန်းဖြင့် ရှာရန်..."
-                className="w-full pl-9 pr-9 py-2.5 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/70 rounded-xl text-sm outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-900 dark:text-white transition-all"
+                placeholder="🔍 အမည်၊ ဖုန်း၊ ပြေစာအမှတ်..."
+                className="w-full pl-9 pr-9 py-2.5 min-h-[46px] bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/70 rounded-xl text-sm outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-900 dark:text-white transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Sort Dropdown */}
+            {/* Sort Menu Trigger */}
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${
+                className={`min-h-[46px] px-3 rounded-xl border flex items-center justify-center transition-colors ${
                   showSortMenu
-                    ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-500 text-indigo-600'
+                    ? 'bg-blue-50 dark:bg-blue-950 border-blue-500 text-blue-600'
                     : 'bg-slate-100 dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-600 dark:text-slate-300'
                 }`}
                 title="အစီအစဉ်ရွေးရန်"
@@ -340,9 +343,9 @@ export function RepairTab() {
                       setSortType('modified_desc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'modified_desc'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -353,9 +356,9 @@ export function RepairTab() {
                       setSortType('date_desc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'date_desc'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -366,9 +369,9 @@ export function RepairTab() {
                       setSortType('name_asc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'name_asc'
-                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
+                        ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
                     }`}
                   >
@@ -381,7 +384,7 @@ export function RepairTab() {
             {/* Quick Add Repair */}
             <button
               onClick={handleOpenNew}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-600/20 active:scale-95 transition-all shrink-0"
+              className="min-h-[46px] flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-600/20 active:scale-95 transition-all shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>+ အပ်ဖုန်းသစ်</span>
@@ -396,7 +399,7 @@ export function RepairTab() {
                 <button
                   key={st}
                   onClick={() => setActiveFilter(st)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                  className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
                     isActive
                       ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'

@@ -48,7 +48,8 @@ export async function addOrUpdateStockProduct(
     costPrice: number;
     price: number;
   },
-  actorName: string
+  actorName: string,
+  recordCashExpense: boolean = true
 ) {
   if (id) {
     const ref = doc(db, 'products', id);
@@ -73,7 +74,7 @@ export async function addOrUpdateStockProduct(
     });
 
     const addedQty = data.amount - Number(old.amount || 0);
-    if (addedQty > 0 && data.costPrice > 0) {
+    if (recordCashExpense && addedQty > 0 && data.costPrice > 0) {
       await addDoc(collection(db, 'transactions'), {
         productId: id,
         type: 'ထွက်ငွေ',
@@ -97,7 +98,7 @@ export async function addOrUpdateStockProduct(
       history: [createHistoryLog('ပစ္စည်းအသစ် စာရင်းသွင်းသည်', actorName)],
     });
 
-    if (data.amount > 0 && data.costPrice > 0) {
+    if (recordCashExpense && data.amount > 0 && data.costPrice > 0) {
       await addDoc(collection(db, 'transactions'), {
         productId: newRef.id,
         type: 'ထွက်ငွေ',

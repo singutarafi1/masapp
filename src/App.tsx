@@ -113,6 +113,7 @@ function AppContent() {
             {activeTab === 'inventory' && <InventoryTab />}
             {activeTab === 'repair' && <RepairTab />}
             {activeTab === 'finance' && <FinanceTab />}
+            {activeTab === 'wallet' && isAdmin && <PersonalWallet />}
             {activeTab === 'debt' && <DebtTab />}
           </>
         )}
@@ -124,6 +125,7 @@ function AppContent() {
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           onOpenAi={() => setIsAiOpen(true)}
+          isAdmin={isAdmin}
         />
       )}
 

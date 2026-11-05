@@ -25,6 +25,7 @@ import {
   formatCurrency,
   formatDetailedTime,
   getLocalDateString,
+  parseAnyDate,
 } from '../../lib/dateUtils';
 import {
   adminMasterDeleteTransaction,
@@ -69,28 +70,23 @@ export function FinanceTab() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Subscribe to month's transactions
+  // Subscribe to shop transactions with robust date parsing
   useEffect(() => {
     if (!selectedMonth) return;
     setLoading(true);
 
-    const year = Number(selectedMonth.slice(0, 4));
-    const month = Number(selectedMonth.slice(5, 7));
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    const q = query(
-      collection(db, 'transactions'),
-      where('date', '>=', startDate),
-      where('date', '<=', endDate)
-    );
-
     const unsub = onSnapshot(
-      q,
+      collection(db, 'transactions'),
       (snapshot) => {
         const list = snapshot.docs
           .map((d) => ({ id: d.id, ...d.data() } as TransactionItem))
-          .filter((d) => d.group !== 'Personal'); // Exclude admin's private personal records
+          .filter((d) => {
+            if (d.group === 'Personal') return false; // Exclude admin's private personal records
+            // Robust month matching using parseAnyDate
+            const dateObj = parseAnyDate(d.date || d.exactDate);
+            const mStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}`;
+            return mStr === selectedMonth;
+          });
         setTransactions(list);
         setLoading(false);
       },
@@ -108,7 +104,7 @@ export function FinanceTab() {
     const days: Record<string, DayFinanceSummary> = {};
 
     transactions.forEach((tx) => {
-      const d = tx.date?.toDate ? tx.date.toDate() : new Date(tx.date || 0);
+      const d = parseAnyDate(tx.date || tx.exactDate);
       const dStr = !isNaN(d.getTime()) ? d.toLocaleDateString('en-CA') : 'Unknown';
 
       if (!days[dStr]) {
@@ -373,6 +369,11 @@ export function FinanceTab() {
     }
   };
 
+  // Today stats for staff daily shift tracking
+  const todayDateStr = getLocalDateString();
+  const todayDayObj = groupedDays[todayDateStr] || { inc: 0, exp: 0, xOut: 0, xIn: 0, logs: [] };
+  const todayNet = todayDayObj.inc - todayDayObj.exp;
+
   return (
     <div className="pb-36">
       {/* Top Month Selector & Aggregate KPI Cards */}
@@ -385,59 +386,75 @@ export function FinanceTab() {
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
+                className="min-h-[46px] px-4 py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-indigo-500"
               />
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleOpenAddTx('ဝင်ငွေ')}
-                className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all"
+                className="min-h-[46px] flex items-center gap-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4" />
                 <span>+ ဝင်ငွေ</span>
               </button>
               <button
                 onClick={() => handleOpenAddTx('ထွက်ငွေ')}
-                className="flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all"
+                className="min-h-[46px] flex items-center gap-1.5 px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-sm active:scale-95 transition-all"
               >
-                <Minus className="w-3.5 h-3.5" />
+                <Minus className="w-4 h-4" />
                 <span>- ထွက်ငွေ</span>
               </button>
             </div>
           </div>
 
-          {/* 3 Main KPIs */}
+          {/* 3 Main KPIs: Staff sees TODAY's daily shift total; Admin sees MONTH's grand totals */}
           <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-            <div className="p-2 sm:p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 min-w-0 overflow-hidden">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-400 block truncate">
-                ဝင်ငွေ စုစုပေါင်း
+                {isAdmin ? 'လချုပ် ဝင်ငွေ' : 'ယနေ့ ဝင်ငွေ'}
               </span>
               <span className="text-sm sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums block truncate">
-                +{formatCurrency(monthStats.totalInc)}
+                +{formatCurrency(isAdmin ? monthStats.totalInc : todayDayObj.inc)}
               </span>
             </div>
 
-            <div className="p-2 sm:p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-400 block truncate">
-                ထွက်ငွေ စုစုပေါင်း
+                {isAdmin ? 'လချုပ် ထွက်ငွေ' : 'ယနေ့ ထွက်ငွေ'}
               </span>
               <span className="text-sm sm:text-lg font-black text-rose-700 dark:text-rose-300 tabular-nums block truncate">
-                -{formatCurrency(monthStats.totalExp)}
+                -{formatCurrency(isAdmin ? monthStats.totalExp : todayDayObj.exp)}
               </span>
             </div>
 
-            <div className="p-2 sm:p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
+            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-bold text-indigo-700 dark:text-indigo-400 block truncate">
-                အသားတင် အမြတ်
+                {isAdmin ? 'လချုပ် အသားတင်' : 'ယနေ့ လက်ကျန်'}
               </span>
-              <span className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
-                monthStats.netProfit >= 0
-                  ? 'text-indigo-700 dark:text-indigo-300'
-                  : 'text-rose-600 dark:text-rose-400'
-              }`}>
-                {monthStats.netProfit >= 0 ? '+' : ''}{formatCurrency(monthStats.netProfit)}
-              </span>
+              {isAdmin ? (
+                <span
+                  className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
+                    monthStats.netProfit >= 0
+                      ? 'text-indigo-700 dark:text-indigo-300'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}
+                >
+                  {monthStats.netProfit >= 0 ? '+' : ''}
+                  {formatCurrency(monthStats.netProfit)}
+                </span>
+              ) : (
+                <span
+                  className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
+                    todayNet >= 0
+                      ? 'text-indigo-700 dark:text-indigo-300'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}
+                >
+                  {todayNet >= 0 ? '+' : ''}
+                  {formatCurrency(todayNet)}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -631,17 +648,17 @@ export function FinanceTab() {
           </div>
 
           {/* Bottom Control Bar of Day Detail */}
-          <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 space-y-2 z-20 max-w-2xl mx-auto pb-safe">
+          <div className="fixed bottom-0 left-0 right-0 p-3 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 space-y-2.5 z-20 max-w-2xl mx-auto pb-safe">
             <div className="flex gap-2">
               <button
                 onClick={() => handleOpenAddTx('ဝင်ငွေ', activeDayDate)}
-                className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm"
+                className="flex-1 min-h-[46px] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-98"
               >
                 + ဝင်ငွေ ထည့်ရန်
               </button>
               <button
                 onClick={() => handleOpenAddTx('ထွက်ငွေ', activeDayDate)}
-                className="flex-1 py-2 px-3 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-sm"
+                className="flex-1 min-h-[46px] py-2.5 px-4 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-98"
               >
                 - ထွက်ငွေ ထည့်ရန်
               </button>
@@ -653,18 +670,18 @@ export function FinanceTab() {
                   setPhysicalCashInput('');
                   setShowSettlementModal(true);
                 }}
-                className="flex-1 py-2.5 px-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5"
+                className="flex-1 min-h-[50px] py-3 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-98"
               >
-                <Scale className="w-3.5 h-3.5" />
+                <Scale className="w-4 h-4" />
                 <span>⚖️ Balance စစ် / ငွေအပ်</span>
               </button>
 
               {isAdmin && (
                 <button
                   onClick={() => setShowOwnerFundModal(true)}
-                  className="py-2.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-sm"
+                  className="min-h-[50px] py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all active:scale-98"
                 >
-                  <Briefcase className="w-3.5 h-3.5" />
+                  <Briefcase className="w-4 h-4" />
                   <span>💼 ဆိုင်ထဲထည့်ငွေ</span>
                 </button>
               )}

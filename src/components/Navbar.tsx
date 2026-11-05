@@ -75,61 +75,55 @@ export function Navbar({
             </button>
           </div>
 
-          {/* Zone 2: Cash On Hand Indicator (Desktop & Mobile Compact) */}
-          <div className="flex items-center gap-1.5 shrink min-w-0">
-            <div className="flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700/60 text-[11px] sm:text-xs">
-              <Wallet className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-              <span className="hidden md:inline text-slate-500 text-[11px] font-medium">အံဆွဲ:</span>
-              <span className="font-black text-indigo-950 dark:text-white truncate">
-                {drawerCash.toLocaleString()} <span className="text-[9px] text-slate-400">Ks</span>
+          {/* Zone 2: Cash On Hand Indicator (ADMIN ONLY - HIDDEN FROM STAFF) */}
+          {isAdmin ? (
+            <div className="flex items-center gap-1.5 shrink min-w-0">
+              <div className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700/60 text-xs">
+                <Wallet className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <span className="hidden md:inline text-slate-500 text-[11px] font-medium">အံဆွဲ:</span>
+                <span className="font-black text-indigo-950 dark:text-white truncate">
+                  {drawerCash.toLocaleString()} <span className="text-[9px] text-slate-400">Ks</span>
+                </span>
+              </div>
+
+              {activeAdminView && (
+                <button
+                  onClick={onResetToCounter}
+                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-200 transition-colors"
+                >
+                  ← ကောင်တာ
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-400">
+                {t('ကောင်တာ အရောင်း/စက်ပြင်', 'Counter POS')}
               </span>
             </div>
-
-            {activeAdminView && (
-              <button
-                onClick={onResetToCounter}
-                className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-xl text-[10px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-200 transition-colors"
-              >
-                ← ကောင်တာ
-              </button>
-            )}
-          </div>
+          )}
 
           {/* Zone 3: Actions */}
-          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* AI Assistant Quick Trigger */}
             <button
               onClick={onOpenAi}
-              className="flex items-center gap-1 p-2 sm:px-3 sm:py-1.5 text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-violet-600 rounded-xl hover:from-indigo-500 hover:to-violet-500 shadow-sm shadow-indigo-500/20 active:scale-95 transition-all"
+              className={`flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-gradient-to-r ${themeConfig.gradient} rounded-xl shadow-sm active:scale-95 transition-all`}
               title="AI Smart Assistant"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">AI</span>
-            </button>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={onToggleTheme}
-              className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
-              title="Theme ပြောင်းရန်"
-              aria-label="Toggle Theme"
-            >
-              {theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-slate-600" />
-              )}
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden sm:inline">AI Smart</span>
             </button>
 
             {/* Profile Avatar / Drawer Trigger */}
             <button
               onClick={onOpenDrawer}
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+              className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs transition-transform active:scale-95 ${
                 isAdmin
-                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40'
-                  : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300/40'
+                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40 shadow-xs'
+                  : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-300/40 shadow-xs'
               }`}
-              title="Drawer Menu ဖွင့်မည်"
+              title={t('မီနူး ဖွင့်မည်', 'Open Menu')}
             >
               {profile?.name?.slice(0, 1) || 'U'}
             </button>

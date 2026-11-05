@@ -87,26 +87,39 @@ export function InventoryTab() {
     return () => unsub();
   }, []);
 
+  const [showSoldHistory, setShowSoldHistory] = useState(false);
+
   // Filter & Sort
   const filteredProducts = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    let result = products.filter((p) => {
-      // Search override
+
+    // If viewing sold history archive
+    if (showSoldHistory) {
+      let soldList = products.filter((p) => p.status === 'ရောင်းပြီး');
       if (q) {
-        return (
-          p.name.toLowerCase().includes(q) &&
-          p.status !== 'ရောင်းပြီး' &&
-          !p.name.includes('(ရောင်းပြီး)')
-        );
+        soldList = soldList.filter((p) => p.name.toLowerCase().includes(q));
+      }
+      return soldList.sort((a, b) => {
+        const tA = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+        const tB = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+        return tB - tA;
+      });
+    }
+
+    let result = products.filter((p) => {
+      // Exclude sold items from regular stock view
+      if (p.status === 'ရောင်းပြီး' || p.name.includes('(ရောင်းပြီး)')) {
+        return false;
+      }
+
+      if (q) {
+        return p.name.toLowerCase().includes(q);
       }
 
       if (activeCategory === 'အားလုံး') {
-        return p.status !== 'ရောင်းပြီး';
+        return true;
       }
-      if (activeCategory === 'ရောင်းပြီး') {
-        return p.status === 'ရောင်းပြီး';
-      }
-      return p.category === activeCategory && p.status !== 'ရောင်းပြီး';
+      return p.category === activeCategory;
     });
 
     // Sorting
@@ -139,7 +152,7 @@ export function InventoryTab() {
 
       return mB - mA;
     });
-  }, [products, searchQuery, activeCategory, sortType]);
+  }, [products, searchQuery, activeCategory, sortType, showSoldHistory]);
 
   // Grouped products by category
   const groupedProducts = useMemo(() => {
@@ -161,12 +174,16 @@ export function InventoryTab() {
       0
     );
     const outOfStockCount = stockItems.filter((p) => p.amount <= 0).length;
-    return { totalItemsCount, totalCostValue, outOfStockCount };
+    const soldCount = products.filter((p) => p.status === 'ရောင်းပြီး').length;
+    return { totalItemsCount, totalCostValue, outOfStockCount, soldCount };
   }, [products]);
+
+  const [recordCashExpense, setRecordCashExpense] = useState(true);
 
   // Open modal to add product
   const handleOpenAdd = () => {
     setEditingProduct(null);
+    setRecordCashExpense(true);
     setFormData({
       name: '',
       category: 'အထွေထွေ',
@@ -180,6 +197,7 @@ export function InventoryTab() {
   // Open modal to edit product
   const handleOpenEdit = (p: ProductItem) => {
     setEditingProduct(p);
+    setRecordCashExpense(true);
     setFormData({
       name: p.name,
       category: p.category || 'အထွေထွေ',
@@ -208,7 +226,8 @@ export function InventoryTab() {
       await addOrUpdateStockProduct(
         editingProduct ? editingProduct.id : null,
         formData,
-        profile?.name || 'Staff'
+        profile?.name || 'Staff',
+        recordCashExpense
       );
       showToast(editingProduct ? 'ပစ္စည်းစာရင်း ပြင်ဆင်ပြီးပါပြီ' : 'ပစ္စည်းအသစ် ထည့်သွင်းပြီးပါပြီ');
       setShowProductModal(false);
@@ -386,13 +405,17 @@ export function InventoryTab() {
         {/* Row 2: Price Grid & Quick Sell Action */}
         <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3 text-xs">
-            <div>
-              <span className="text-[10px] text-slate-400 block font-medium">အရင်း</span>
-              <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">
-                {formatCurrency(p.costPrice)}
-              </span>
-            </div>
-            <div className="w-px h-6 bg-slate-200 dark:bg-slate-800" />
+            {isAdmin && (
+              <>
+                <div>
+                  <span className="text-[10px] text-slate-400 block font-medium">အရင်း</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300 tabular-nums">
+                    {formatCurrency(p.costPrice)}
+                  </span>
+                </div>
+                <div className="w-px h-6 bg-slate-200 dark:bg-slate-800" />
+              </>
+            )}
             <div>
               <span className="text-[10px] text-slate-400 block font-medium">ရောင်းဈေး</span>
               <span className="font-extrabold text-indigo-600 dark:text-indigo-400 tabular-nums">
@@ -404,9 +427,9 @@ export function InventoryTab() {
           {!isSold && !isOut && (
             <button
               onClick={() => handleOpenSell(p)}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 shadow-sm"
+              className="flex items-center gap-2 min-h-[42px] px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 shadow-sm"
             >
-              <ShoppingCart className="w-3.5 h-3.5" />
+              <ShoppingCart className="w-4 h-4" />
               <span>ရောင်းမည်</span>
             </button>
           )}
@@ -420,9 +443,9 @@ export function InventoryTab() {
       {/* Top Controls & KPI Bar */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
         <div className="max-w-5xl mx-auto space-y-3.5">
-          {/* Quick Metrics */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-            <div className="p-2 sm:p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 min-w-0 overflow-hidden">
+          {/* Quick Metrics (Staff does NOT see stock cost value) */}
+          <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-2.5`}>
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">
                 ပစ္စည်းအရေအတွက်
               </span>
@@ -430,15 +453,19 @@ export function InventoryTab() {
                 {stats.totalItemsCount.toLocaleString()}
               </span>
             </div>
-            <div className="p-2 sm:p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 block truncate">
-                စတော့အရင်းတန်ဖိုး
-              </span>
-              <span className="text-base sm:text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums truncate block">
-                {formatCurrency(stats.totalCostValue)}
-              </span>
-            </div>
-            <div className="p-2 sm:p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
+
+            {isAdmin && (
+              <div className="p-2.5 sm:p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
+                <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 block truncate">
+                  စတော့အရင်းတန်ဖိုး
+                </span>
+                <span className="text-base sm:text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums truncate block">
+                  {formatCurrency(stats.totalCostValue)}
+                </span>
+              </div>
+            )}
+
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-semibold text-rose-600 dark:text-rose-400 block truncate">
                 လက်ကျန်ပြတ်
               </span>
@@ -448,7 +475,7 @@ export function InventoryTab() {
             </div>
           </div>
 
-          {/* Search & Actions Bar */}
+          {/* Search & Actions Bar with Enlarged Touch Controls */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -457,12 +484,12 @@ export function InventoryTab() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="🔍 ပစ္စည်းအမည်ဖြင့် ရှာရန်..."
-                className="w-full pl-9 pr-9 py-2.5 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/70 rounded-xl text-sm outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-900 dark:text-white transition-all"
+                className="w-full pl-9 pr-9 py-2.5 min-h-[46px] bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700/70 rounded-xl text-sm outline-none focus:bg-white dark:focus:bg-slate-900 focus:border-indigo-500 text-slate-900 dark:text-white transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -473,7 +500,7 @@ export function InventoryTab() {
             <div className="relative">
               <button
                 onClick={() => setShowSortMenu(!showSortMenu)}
-                className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors ${
+                className={`min-h-[46px] px-3 rounded-xl border flex items-center justify-center transition-colors ${
                   showSortMenu
                     ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-500 text-indigo-600'
                     : 'bg-slate-100 dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -490,7 +517,7 @@ export function InventoryTab() {
                       setSortType('modified_desc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'modified_desc'
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -503,7 +530,7 @@ export function InventoryTab() {
                       setSortType('date_desc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'date_desc'
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -516,7 +543,7 @@ export function InventoryTab() {
                       setSortType('name_asc');
                       setShowSortMenu(false);
                     }}
-                    className={`w-full text-left px-3.5 py-2 text-xs font-semibold flex items-center justify-between ${
+                    className={`w-full text-left px-3.5 py-2.5 text-xs font-semibold flex items-center justify-between ${
                       sortType === 'name_asc'
                         ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -531,44 +558,62 @@ export function InventoryTab() {
             {/* View Mode Toggle (Grouped vs Flat List) */}
             <button
               onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
-              className={`p-2.5 rounded-xl border flex items-center justify-center transition-colors shrink-0 text-xs font-bold gap-1 ${
+              className={`min-h-[46px] px-3.5 py-2 rounded-xl border flex items-center justify-center transition-colors shrink-0 text-xs font-bold gap-1.5 ${
                 viewMode === 'grouped'
                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300'
               }`}
               title={viewMode === 'grouped' ? t('ပုံမှန်စာရင်းသို့ ပြောင်းမည်', 'Switch to Flat List') : t('အုပ်စုလိုက် ခွဲကြည့်မည်', 'Group by Category')}
             >
-              <span>{viewMode === 'grouped' ? '🗂️ အုပ်စုလိုက်' : '📋 စာရင်း'}</span>
+              <span>{viewMode === 'grouped' ? '🗂️ အုပ်စု' : '📋 စာရင်း'}</span>
             </button>
 
             {/* Add Product Button */}
             <button
               onClick={handleOpenAdd}
-              className={`flex items-center gap-1.5 px-3 py-2.5 ${themeConfig.primaryBg} ${themeConfig.primaryHover} text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all shrink-0`}
+              className={`min-h-[46px] flex items-center gap-1.5 px-4 py-2.5 ${themeConfig.primaryBg} ${themeConfig.primaryHover} text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all shrink-0`}
             >
               <Plus className="w-4 h-4" />
               <span>{t('+ ပစ္စည်းသစ်', '+ Add Item')}</span>
             </button>
           </div>
 
-          {/* Interactive Dynamic Category Filter Pills */}
-          <div className="flex gap-1.5 scroll-touch-x no-scrollbar pb-1">
-            {productCategories.map((cat) => {
-              const isActive = activeCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
-                    isActive
-                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+          {/* Option (ခ) Clean Product Category Pills (Pure Categories ONLY, no 'ရောင်းပြီး') */}
+          <div className="flex items-center gap-1.5 scroll-touch-x no-scrollbar pb-1">
+            {productCategories
+              .filter((cat) => cat !== 'ရောင်းပြီး')
+              .map((cat) => {
+                const isActive = !showSoldHistory && activeCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setShowSoldHistory(false);
+                      setActiveCategory(cat);
+                    }}
+                    className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                      isActive
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+
+            {/* Separate Sold History / Rollback trigger button */}
+            <button
+              onClick={() => setShowSoldHistory(!showSoldHistory)}
+              className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold shrink-0 transition-all flex items-center gap-1.5 ${
+                showSoldHistory
+                  ? 'bg-rose-600 text-white shadow-md'
+                  : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200/60 dark:border-rose-900/40 hover:bg-rose-100'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>{showSoldHistory ? 'စတော့သို့ ပြန်သွားမည်' : `အရောင်းမှတ်တမ်း (${stats.soldCount})`}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -739,6 +784,31 @@ export function InventoryTab() {
                   />
                 </div>
               </div>
+
+              {/* Cash Till Deduction Toggle */}
+              {formData.costPrice > 0 && (
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                      💵 ဆိုင်ငွေစာရင်းထဲတွင် အသုံးစရိတ် (ထွက်ငွေ) အဖြစ် မှတ်မည်
+                    </span>
+                    <span className="text-[11px] text-slate-400 block mt-0.5">
+                      {recordCashExpense
+                        ? `(ဝယ်ယူစရိတ် ${formatCurrency(formData.costPrice * formData.amount)} ကို ထွက်ငွေအဖြစ် မှတ်ပါမည်)`
+                        : '(ဆိုင်ထဲ အရင်ရှိပြီးသား စတော့အဟောင်းဖြစ်ပါက အံဆွဲငွေ မနှုတ်ပါ)'}
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={recordCashExpense}
+                      onChange={(e) => setRecordCashExpense(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+              )}
 
               {/* Activity Logs History */}
               {editingProduct?.history && editingProduct.history.length > 0 && (

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { db, collection, onSnapshot, query, where } from '../../lib/firebase';
 import { TransactionItem, RepairItem, ProductItem } from '../../types';
+import { parseAnyDate } from '../../lib/dateUtils';
 
 export function ExecutiveDashboard() {
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
@@ -52,17 +53,14 @@ export function ExecutiveDashboard() {
     };
   }, []);
 
-  // Filter transactions according to timeFilter
+  // Filter transactions according to timeFilter using parseAnyDate
   const now = new Date();
   const filteredTx = transactions.filter((tx) => {
     if (tx.voided) return false;
     if (timeFilter === 'all') return true;
 
-    let d: Date;
-    if (tx.date && typeof tx.date.toDate === 'function') d = tx.date.toDate();
-    else if (tx.date instanceof Date) d = tx.date;
-    else if (typeof tx.date === 'string') d = new Date(tx.date);
-    else return true;
+    const d = parseAnyDate(tx.date || tx.exactDate);
+    if (isNaN(d.getTime())) return true;
 
     if (timeFilter === 'this_month') {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -74,8 +72,8 @@ export function ExecutiveDashboard() {
   });
 
   // 1. Drawer Cash on Hand (Pure Cash In vs Cash Out from shop operations)
-  // Cash in = ဝင်ငွေ (excluding Personal)
-  // Cash out = ထွက်ငွေ (excluding Personal)
+  // Cash in = ဝင်ငွေ (including OwnerFund, excluding Personal)
+  // Cash out = ထွက်ငွေ (including Handover, excluding Personal)
   let drawerIn = 0;
   let drawerOut = 0;
   filteredTx.forEach((tx) => {
@@ -86,35 +84,41 @@ export function ExecutiveDashboard() {
   });
   const drawerCashOnHand = drawerIn - drawerOut;
 
-  // 2. Real Business P&L
-  // Revenue: Service (စက်ပြင်ဝန်ဆောင်ခ) + Sales (ပစ္စည်းအရောင်း)
-  // COGS: StockPurchase (ဝယ်ရင်းစရိတ်) + Repair Cost (အပိုပစ္စည်းစရိတ်)
-  // Opex: Office (ဆိုင်အသုံးစရိတ်) + Home (အိမ်ပို့စရိတ်)
+  // 2. Real Business P&L (100% matched with FinanceTab accounting logic)
+  // Revenue: Service + Sales + Other operating revenues (excludes OwnerFund equity injections)
+  // COGS: StockPurchase + Repair parts cost
+  // Opex: Office + Home + CashDiff + other expenses (excludes Handover transfers to owner)
   let revService = 0;
   let revSales = 0;
+  let revOther = 0;
   let cogsStock = 0;
   let cogsRepair = 0;
   let opexOffice = 0;
   let opexHome = 0;
+  let opexOther = 0;
 
   filteredTx.forEach((tx) => {
     if (tx.group === 'Personal') return;
     const amt = Number(tx.amount) || 0;
     if (tx.type === 'ဝင်ငွေ') {
+      if (tx.group === 'OwnerFund') return; // Equity injection, not revenue
       if (tx.group === 'Service') revService += amt;
       else if (tx.group === 'Sales') revSales += amt;
+      else revOther += amt;
     } else if (tx.type === 'ထွက်ငွေ') {
+      if (tx.group === 'Handover') return; // Transfer to owner, not an operating expense
       if (tx.group === 'StockPurchase') cogsStock += amt;
-      else if (tx.group === 'Service') cogsRepair += amt; // repair cost
+      else if (tx.group === 'Service') cogsRepair += amt;
       else if (tx.group === 'Office') opexOffice += amt;
       else if (tx.group === 'Home') opexHome += amt;
+      else opexOther += amt;
     }
   });
 
-  const totalRevenue = revService + revSales;
+  const totalRevenue = revService + revSales + revOther;
   const totalCogs = cogsStock + cogsRepair;
   const grossProfit = totalRevenue - totalCogs;
-  const totalOpex = opexOffice + opexHome;
+  const totalOpex = opexOffice + opexHome + opexOther;
   const netBusinessProfit = grossProfit - totalOpex;
   const profitMargin = totalRevenue > 0 ? ((netBusinessProfit / totalRevenue) * 100).toFixed(1) : '0';
 

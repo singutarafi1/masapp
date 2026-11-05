@@ -83,6 +83,7 @@ export interface TransactionItem {
   transferId?: string;
   transferPair?: 'handover' | 'ownerfund';
   subGroup?: string;
+  note?: string;
   voided?: boolean;
   voidedBy?: string;
   source?: 'auto' | 'tx';
