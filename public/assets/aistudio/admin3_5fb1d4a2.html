@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Answer Admin Pro</title>
+
+<!-- Offline Firebase SDKs -->
+<script src="js/firebase-app-compat.js"></script>
+<script src="js/firebase-auth-compat.js"></script>
+<script src="js/firebase-firestore-compat.js"></script>
+
+<!-- UI & Charts (Local) -->
+<script src="js/sweetalert2.all.min.js"></script>
+<script src="js/chart.umd.js"></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Myanmar:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<style>
+/* Main App UI/UX Theme Variables */
+:root {
+  --primary: #5b6bf7;
+  --primary-hover: #4a5ad9;
+  --primary-light: #eef1ff;
+  --primary-glow: rgba(91, 107, 247, 0.25);
+  --bg-body: #f5f8fc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f8faff;
+  --bg-input: #f0f3f8;
+  --text-main: #0f1a2e;
+  --text-secondary: #2d3a4f;
+  --text-muted: #6b7a8f;
+  --text-inverse: #ffffff;
+  --border-light: #e9edf4;
+  --border-focus: #5b6bf7;
+  --success: #10b981;
+  --success-light: #e6f9f0;
+  --danger: #ef4444;
+  --danger-light: #fee9e9;
+  --warning: #f59e0b;
+  --warning-light: #fef3d7;
+  --info: #3b82f6;
+  --info-light: #e8effe;
+  --violet: #8b5cf6;
+  --violet-light: #f3e8ff;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.08);
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg-body); color: var(--text-main); font-family: 'Noto Sans Myanmar', sans-serif; overflow-x: hidden; }
+
+/* ── SPLASH ── */
+#splash { position: fixed; inset: 0; background: var(--bg-body); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+.splash-logo { width: 72px; height: 72px; background: var(--primary-light); color: var(--primary); border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 24px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.94); opacity: 0.85; } }
+.splash-dots { display: flex; gap: 6px; margin-top: 20px; }
+.splash-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); opacity: 0.3; animation: dot 1.2s ease-in-out infinite; }
+.splash-dot:nth-child(2) { animation-delay: 0.2s; }
+.splash-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dot { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+.splash-text { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; }
+
+/* ── LOGIN ── */
+#login-view { position: fixed; inset: 0; background: var(--bg-body); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; z-index: 9998; }
+.login-wrap { width: 100%; max-width: 380px; text-align: center; }
+.login-header { margin-bottom: 36px; }
+.login-logo { width: 70px; height: 70px; background: var(--primary-light); border-radius: 20px; margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; }
+.login-title { font-size: 24px; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; margin-bottom: 8px; }
+.login-sub { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+
+.input-group { margin-bottom: 14px; text-align: left; }
+.input-group input, .input-group select { width: 100%; padding: 14px 16px; border: 1.5px solid transparent; border-radius: var(--radius-md); font-size: 14px; background: var(--bg-input); color: var(--text-main); outline: none; font-family: inherit; transition: all 0.2s; }
+.input-group input:focus, .input-group select:focus { background: var(--bg-surface); border-color: var(--border-focus); box-shadow: 0 0 0 4px var(--primary-glow); }
+.input-group input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+.btn-login { width: 100%; background: var(--primary); color: #fff; font-size: 14px; font-weight: 700; border: none; border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.2px; box-shadow: var(--shadow-glow); margin-top: 10px; }
+.btn-login:active { transform: scale(0.96); opacity: 0.92; }
+
+/* ── APP SHELL ── */
+#admin-view { display: none; flex-direction: column; min-height: 100vh; padding-bottom: calc(85px + var(--safe-bottom)); }
+
+.app-header { display: flex; align-items: center; justify-content: space-between; padding: calc(14px + var(--safe-top)) 20px 14px; position: sticky; top: 0; z-index: 50; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border-light); }
+.ah-logo { display: flex; align-items: center; gap: 10px; }
+.ah-icon { width: 34px; height: 34px; background: var(--primary-light); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; color: var(--primary); flex-shrink: 0; }
+.ah-name { font-size: 16px; font-weight: 800; color: var(--text-main); }
+.ah-sub { font-size: 9px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+.ah-right { display: flex; gap: 8px; align-items: center; }
+.icon-btn { width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--bg-input); display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; }
+.icon-btn:active { transform: scale(0.9); background: var(--border-light); }
+.icon-btn.danger { background: var(--danger-light); color: var(--danger); }
+
+.date-strip { padding: 12px 20px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--border-light); background: var(--bg-surface); }
+.date-pill { flex: 1; background: var(--bg-input); border-radius: var(--radius-sm); padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.date-pill-lbl { font-size: 8px; font-weight: 800; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px 2px; line-height: 1; }
+.date-pill-input { background: transparent; border: none; padding: 4px 10px 8px; font-size: 13px; font-weight: 700; color: var(--text-main); font-family: inherit; outline: none; width: 100%; }
+.btn-go { background: var(--primary); color: #fff; font-size: 12px; font-weight: 700; border: none; border-radius: var(--radius-sm); padding: 10px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0; }
+.btn-go:active { transform: scale(0.95); }
+
+/* Bottom Nav */
+.bottom-nav { position: fixed; bottom: 20px; left: 2%; width: 96%; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: var(--radius-lg); border: 1px solid rgba(255,255,255,0.5); display: flex; z-index: 100; padding: 8px 0; margin-bottom: var(--safe-bottom); box-shadow: var(--shadow-lg); overflow-x: auto; }
+.bn-item { flex: 1; min-width: 50px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 4px 0; cursor: pointer; transition: all 0.2s; border: none; background: transparent; color: var(--text-muted); font-family: inherit; }
+.bn-icon { font-size: 17px; line-height: 1; transition: transform 0.2s; }
+.bn-label { font-size: 7.5px; font-weight: 800; letter-spacing: 0.2px; text-transform: uppercase; transition: color 0.2s; white-space: nowrap; }
+.bn-item.active { color: var(--primary); }
+.bn-item.active .bn-icon { transform: translateY(-3px); }
+.bn-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--primary); margin-top: -2px; opacity: 0; transition: opacity 0.2s; position: absolute; bottom: 4px; }
+.bn-item.active .bn-dot { opacity: 1; }
+
+.page { display: none; padding: 20px; max-width: 600px; margin: 0 auto; width: 100%; }
+.page.active { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── SECTION HEADERS & CARDS ── */
+.sec-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.sec-eyebrow { font-size: 10px; font-weight: 800; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.sec-title { font-size: 20px; font-weight: 900; color: var(--text-main); line-height: 1.2; }
+.sec-badge { background: var(--primary-light); border: 1px solid var(--primary-glow); border-radius: 20px; padding: 5px 12px; font-size: 11px; font-weight: 800; color: var(--primary); white-space: nowrap; margin-top: 4px; }
+
+.row-block, .chart-section, .pf-strip, .rate-tile, .prog-block, .top-block, .user-block, .logs-block { background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); overflow: hidden; margin-bottom: 14px; }
+.card { background: var(--bg-surface); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 12px; border: 1px solid var(--border-light); box-shadow: var(--shadow-sm); transition: all 0.2s; position: relative; }
+.card:active { transform: scale(0.98); }
+
+.metric-tile { background: linear-gradient(135deg, var(--primary), var(--primary-hover)); border-radius: var(--radius-md); padding: 22px 20px; margin-bottom: 14px; position: relative; overflow: hidden; box-shadow: 0 8px 24px var(--primary-glow); color: #fff; }
+.metric-tile::before { content: ''; position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.1); }
+.mt-label { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.8); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+.mt-value { font-size: 32px; font-weight: 900; line-height: 1; letter-spacing: -0.5px; margin-bottom: 4px; }
+.mt-margin { position: absolute; top: 18px; right: 18px; text-align: right; }
+.mt-margin-lbl { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.7); letter-spacing: 0.8px; text-transform: uppercase; }
+.mt-margin-val { font-size: 20px; font-weight: 900; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.sg-cell { background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--shadow-sm); }
+.sg-lbl { font-size: 9px; font-weight: 800; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; }
+.sg-val { font-size: 20px; font-weight: 800; color: var(--text-main); line-height: 1; }
+.sg-cell.accent-lime { background: var(--success-light); border-color: rgba(16,185,129,0.2); }
+.sg-cell.accent-lime .sg-lbl, .sg-cell.accent-lime .sg-val { color: var(--success); }
+.sg-cell.accent-rose { background: var(--danger-light); border-color: rgba(239,68,68,0.2); }
+.sg-cell.accent-rose .sg-lbl, .sg-cell.accent-rose .sg-val { color: var(--danger); }
+.sg-cell.accent-gold { background: var(--warning-light); border-color: rgba(245,158,11,0.2); }
+.sg-cell.accent-gold .sg-lbl, .sg-cell.accent-gold .sg-val { color: var(--warning); }
+.sg-void { display: flex; justify-content: space-between; border-left: 1px solid var(--border-light); padding-left: 10px; margin-left: 10px; }
+.sg-void-lbl { font-size: 9px; color: var(--text-muted); font-weight: 700; }
+.sg-void-val { font-size: 14px; font-weight: 800; color: var(--danger); }
+
+.rb-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border-light); }
+.rb-row:last-child { border-bottom: none; }
+.rb-name { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.rb-sub { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+.rb-val { font-size: 15px; font-weight: 800; }
+.rb-sub-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 18px 9px 34px; border-bottom: 1px solid var(--border-light); background: var(--bg-elevated); }
+.rb-sub-row:last-child { border-bottom: none; }
+.rb-sub-name { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.rb-sub-val { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+
+/* Charts & Specific UI */
+.chart-section { padding: 20px; display: flex; align-items: center; gap: 20px; }
+.chart-donut { width: 100px; height: 100px; flex-shrink: 0; }
+.cl-item { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cl-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.cl-name { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+.pf-head { background: var(--violet-light); padding: 12px 18px; display: flex; align-items: center; gap: 8px; }
+.pf-head-text { font-size: 11px; font-weight: 800; color: var(--violet); letter-spacing: 0.5px; text-transform: uppercase; }
+.pf-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.pf-col { padding: 14px 12px; text-align: center; border-right: 1px solid var(--border-light); }
+.pf-col:last-child { border-right: none; }
+.pf-col-lbl { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px; }
+.pf-col-val { font-size: 14px; font-weight: 800; }
+
+.btn-export { width: 100%; background: var(--success-light); border: 1px solid rgba(16,185,129,0.2); border-radius: var(--radius-sm); padding: 14px; font-size: 13px; font-weight: 800; color: var(--success); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 14px; }
+
+.rate-tile { padding: 20px; display: flex; align-items: center; gap: 16px; }
+.rate-chart-sm { width: 80px; height: 80px; flex-shrink: 0; }
+.rate-body { flex: 1; }
+.rate-lbl { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+.rate-num { font-size: 32px; font-weight: 900; color: var(--primary); line-height: 1; letter-spacing: -1px; }
+.rate-note { font-size: 9px; font-weight: 500; color: var(--text-muted); margin-top: 4px; }
+.rate-right { text-align: right; flex-shrink: 0; }
+.rate-avg-lbl { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+.rate-avg-val { font-size: 16px; font-weight: 800; color: var(--primary); }
+
+.net-box { background: var(--primary-light); border: 1px solid var(--primary-glow); border-radius: var(--radius-sm); padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.nb-left .nb-lbl { font-size: 11px; font-weight: 700; color: var(--primary); }
+.nb-left .nb-sub { font-size: 9px; font-weight: 600; color: var(--text-muted); margin-top: 3px; }
+.nb-val { font-size: 20px; font-weight: 900; color: var(--primary); }
+
+.alert-bar { border-radius: var(--radius-sm); padding: 12px 16px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 14px; }
+.ab-amber { background: var(--warning-light); border: 1px solid rgba(245,158,11,0.2); }
+.ab-rose { background: var(--danger-light); border: 1px solid rgba(239,68,68,0.2); }
+.ab-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.ab-text { font-size: 12px; font-weight: 700; color: var(--text-main); }
+.ab-sub { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+
+.inv-heroes { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border-light); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.inv-hero { background: var(--bg-surface); padding: 18px; text-align: center; }
+.inv-hero-lbl { font-size: 9px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; }
+.inv-hero-val { font-size: 20px; font-weight: 900; }
+
+.prog-block { padding: 18px; }
+.prog-title { font-size: 10px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; margin-bottom: 16px; }
+.prog-item { margin-bottom: 14px; }
+.prog-header { display: flex; justify-content: space-between; margin-bottom: 7px; }
+.prog-name { font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.prog-pct { font-size: 12px; font-weight: 900; color: var(--text-main); }
+.prog-track { height: 6px; background: var(--bg-input); border-radius: 99px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+
+.top-head, .ub-head, .logs-head { padding: 14px 18px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 8px; background: var(--bg-elevated); }
+.top-head-text, .ub-head-text, .logs-head-text { font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.top-head-text { color: var(--warning); } .ub-head-text { color: var(--primary); } .logs-head-text { color: var(--violet); }
+
+.top-item, .user-row, .log-item { padding: 14px 18px; border-bottom: 1px solid var(--border-light); }
+.top-item { display: flex; align-items: center; gap: 12px; }
+.top-rank { font-size: 13px; font-weight: 900; color: var(--warning); width: 20px; text-align: center; flex-shrink: 0; }
+.top-name { font-size: 13px; font-weight: 700; color: var(--text-main); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-qty { font-size: 11px; font-weight: 800; color: #fff; background: var(--warning); border-radius: 6px; padding: 4px 10px; }
+
+.user-row { display: flex; align-items: center; justify-content: space-between; }
+.ur-info { display: flex; align-items: center; gap: 12px; }
+.ur-avatar { width: 40px; height: 40px; border-radius: 12px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 900; flex-shrink: 0; }
+.ur-name { font-size: 13px; font-weight: 800; color: var(--text-main); }
+.ur-meta { font-size: 10px; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
+.ur-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.badge-online { background: var(--success-light); color: var(--success); border-radius: 6px; padding: 4px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.badge-offline { background: var(--bg-input); color: var(--text-muted); border-radius: 6px; padding: 4px 8px; font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.btn-role { border-radius: 6px; padding: 5px 10px; font-size: 10px; font-weight: 800; font-family: inherit; cursor: pointer; border: 1px solid; }
+.btn-role-staff { background: var(--bg-surface); border-color: var(--border-light); color: var(--text-muted); }
+.btn-role-admin { background: var(--danger-light); border-color: rgba(239,68,68,0.2); color: var(--danger); }
+.ur-self { font-size: 10px; font-weight: 700; color: var(--text-muted); background: var(--bg-input); border-radius: 6px; padding: 4px 10px; }
+
+.log-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.log-who { font-size: 10px; font-weight: 800; color: var(--primary); background: var(--primary-light); border-radius: 6px; padding: 3px 8px; }
+.log-time { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+.log-action { font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+.log-detail { font-size: 11px; font-weight: 500; color: var(--text-secondary); line-height: 1.6; }
+.log-diff { display: block; margin-top: 6px; background: var(--bg-elevated); border: 1px dashed var(--border-light); border-radius: 8px; padding: 8px 12px; font-size: 11px; font-family: monospace; color: var(--text-muted); line-height: 1.7; }
+.val-old { color: var(--danger); text-decoration: line-through; margin-right: 4px; }
+.val-new { color: var(--success); font-weight: 800; }
+
+/* ── FULLSCREEN VIEW ── */
+.fullscreen-view { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); z-index: 500; display: none; flex-direction: column; transform: translateX(100%); transition: transform 0.35s ease; }
+.fullscreen-view.active { display: flex; transform: translateX(0); }
+
+/* ── MODALS ── */
+.modal-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45); backdrop-filter: blur(4px); z-index: 600; display: flex; align-items: flex-end; justify-content: center; opacity: 1; transition: opacity 0.3s ease; }
+@media(min-width:480px){ .modal-bg { align-items: center; padding: 20px; } }
+.modal-sheet { background: var(--bg-surface); border-radius: var(--radius-xl) var(--radius-xl) 0 0; width: 100%; max-width: 480px; overflow: hidden; transform: translateY(100%); transition: transform 0.35s ease; box-shadow: 0 -12px 48px rgba(0,0,0,0.12); }
+@media(min-width:480px){ .modal-sheet { border-radius: var(--radius-xl); } }
+.modal-sheet.open { transform: translateY(0); }
+.modal-top { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 16px; border-bottom: 1px solid var(--border-light); }
+.modal-title { font-size: 16px; font-weight: 800; color: var(--text-main); }
+.modal-close { width: 34px; height: 34px; background: var(--bg-input); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-muted); cursor: pointer; border: none; }
+.modal-body { padding: 20px; max-height:60vh; overflow-y:auto; }
+.modal-foot { padding: 16px 20px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border-light); display: flex; gap: 10px; background: var(--bg-surface); }
+
+/* Form Elements */
+.f-label { font-size: 10px; font-weight: 800; color: var(--text-muted); letter-spacing: 0.5px; text-transform: uppercase; display: block; margin-bottom: 8px; }
+.f-group { margin-bottom: 18px; }
+.f-toggle { display: flex; background: var(--bg-input); border-radius: var(--radius-sm); padding: 4px; gap: 4px; margin-bottom: 0; }
+.f-toggle-btn { flex: 1; border: none; border-radius: 8px; padding: 11px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer; color: var(--text-muted); background: transparent; }
+.f-toggle-btn.on-lime { background: var(--success); color: #fff; box-shadow: 0 2px 8px rgba(16,185,129,0.3); }
+.f-toggle-btn.on-rose { background: var(--danger); color: #fff; box-shadow: 0 2px 8px rgba(239,68,68,0.3); }
+.f-select, .f-input { width: 100%; background: var(--bg-input); border: 1.5px solid transparent; border-radius: var(--radius-sm); padding: 13px 14px; font-size: 14px; font-weight: 500; color: var(--text-main); font-family: inherit; outline: none; }
+.f-select:focus, .f-input:focus { background: var(--bg-surface); border-color: var(--border-focus); box-shadow: 0 0 0 4px var(--primary-glow); }
+.btn-cancel { flex: 1; background: var(--bg-input); border: none; border-radius: var(--radius-sm); padding: 14px; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.btn-save { flex: 2; background: var(--primary); border: none; border-radius: var(--radius-sm); padding: 14px; font-size: 13px; font-weight: 800; color: #fff; cursor: pointer; }
+
+/* Control Tab Checkboxes */
+.chk-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+.chk-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+.chk-row label { font-size: 13px; font-weight: 600; color: var(--text-main); }
+
+/* ── PERSONAL DASHBOARD SPECIFIC UI ── */
+.cat-detail-box { display: none; padding: 10px 18px 10px 42px; background: var(--bg-elevated); border-bottom: 1px solid var(--border-light); animation: slideDown 0.2s ease-out; }
+.cat-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border-light); }
+.cat-detail-row:last-child { border-bottom: none; }
+.cat-detail-name { font-size: 13px; font-weight: 700; color: var(--text-main); margin-bottom: 2px; }
+.cat-detail-date { font-size: 10px; font-weight: 600; color: var(--text-muted); }
+.cat-detail-amt { font-size: 13px; font-weight: 800; color: var(--danger); }
+
+@keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+.hidden { display: none !important; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-logo"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+  <p class="splash-text">Admin Console</p>
+  <div class="splash-dots"><div class="splash-dot"></div><div class="splash-dot"></div><div class="splash-dot"></div></div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-view" class="hidden">
+  <div class="login-wrap">
+    <div class="login-header">
+      <div class="login-logo"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+      <div class="login-title">Mobile Answer<br>Admin</div>
+      <div class="login-sub">ဆိုင်စီမံမှု စနစ်သို့ ဝင်ရောက်ပါ</div>
+    </div>
+    <div class="input-group"><input type="email" id="adminEmail" placeholder="Email Address"></div>
+    <div class="input-group"><input type="password" id="adminPassword" placeholder="Password"></div>
+    <button onclick="loginAdmin()" class="btn-login">လော့ဂ်အင်ဝင်မည်</button>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="admin-view">
+
+  <!-- Header -->
+  <div class="app-header">
+    <div class="ah-logo">
+      <div class="ah-icon">⚡</div>
+      <div>
+        <div class="ah-name">Admin Monitor</div>
+        <div class="ah-sub">Real-time Auto Sync</div>
+      </div>
+    </div>
+    <div class="ah-right">
+      <div class="icon-btn danger" onclick="logoutAdmin()" title="Logout">🚪</div>
+    </div>
+  </div>
+
+  <!-- Pages -->
+  <!-- DASHBOARD PAGE -->
+  <div id="page-dashboard" class="page active">
+    <!-- Date Filter -->
+    <div class="date-strip" style="margin: -20px -20px 20px -20px; border-radius:0;">
+      <div class="date-pill">
+        <span class="date-pill-lbl">Start</span>
+        <input type="date" id="filterStart" class="date-pill-input">
+      </div>
+      <div class="date-pill">
+        <span class="date-pill-lbl">End</span>
+        <input type="date" id="filterEnd" class="date-pill-input">
+      </div>
+      <button onclick="applyGlobalFilter()" class="btn-go">ရှာ →</button>
+    </div>
+
+    <div class="sec-head">
+      <div><div class="sec-eyebrow">Business Overview</div><div class="sec-title">ဘဏ္ဍာရေး<br>အစီရင်ခံ</div></div>
+      <div class="sec-badge" id="grandMargin">0%</div>
+    </div>
+
+    <!-- လက်ကျန်ငွေ နှင့် မြုပ်နေသောအရင်း -->
+    <div class="stat-grid" style="margin-bottom:14px">
+      <div class="sg-cell" style="border-color:rgba(59,130,246,0.2); background:var(--info-light)">
+        <div class="sg-lbl" style="color:var(--info)">💰 လက်ရှိ အံဆွဲထဲမှငွေ</div>
+        <div id="dashCashOnHand" class="sg-val" style="color:var(--info); font-size:18px;">0 Ks</div>
+        <div style="font-size:9px; color:var(--text-muted); margin-top:4px;">(Drawer Cash Flow)</div>
+      </div>
+      <div class="sg-cell" style="border-color:rgba(245,158,11,0.2); background:var(--warning-light)">
+        <div class="sg-lbl" style="color:var(--warning)">📦 မြုပ်နေသော အရင်း</div>
+        <div id="dashInvested" class="sg-val" style="color:var(--warning); font-size:18px;">0 Ks</div>
+        <div style="font-size:9px; color:var(--text-muted); margin-top:8px; border-top:1px solid rgba(0,0,0,0.05); padding-top:6px;">
+          ▸ ပစ္စည်းလက်ကျန်: <b id="dashUnsold" style="color:var(--text-main)">0 Ks</b><br>
+          <div style="margin-top:2px;">▸ ဖုန်းပြင် (မရွေး): <b id="dashPending" style="color:var(--text-main)">0 Ks</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hero metric (Net Profit) -->
+    <div class="metric-tile">
+      <div class="mt-margin">
+        <div class="mt-margin-lbl">Margin</div>
+        <div class="mt-margin-val" id="grandMarginTile">0%</div>
+      </div>
+      <div class="mt-label">ရွေးချယ်ထားသောကာလ အသားတင်အမြတ်</div>
+      <div id="grandNetProfit" class="mt-value">0 Ks</div>
+      <div style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); margin-top:4px;">(စိုက်ငွေ/ဝယ်ငွေများ ဖယ်ထုတ်ထားပြီးသော အမြတ်အစစ်)</div>
+    </div>
+
+    <!-- P&L rows -->
+    <div class="row-block">
+      <div class="rb-row">
+        <div class="rb-name">📈 ဝင်ငွေ (Sales + Service)<div class="rb-sub">Total Revenue</div></div>
+        <div id="grandIncome" class="rb-val" style="color:var(--success)">0 Ks</div>
+      </div>
+      <div class="rb-row">
+        <div class="rb-name">📉 ပစ္စည်း/ပြင်ဆင်မှု အရင်း<div class="rb-sub">Base Costs (COGS)</div></div>
+        <div id="grandCOGS" class="rb-val" style="color:var(--danger)">0 Ks</div>
+      </div>
+      <div class="rb-sub-row"><div class="rb-sub-name">▸ အရောင်း ပစ္စည်းအရင်း</div><div id="costSalesDet" class="rb-sub-val">0 Ks</div></div>
+      <div class="rb-sub-row"><div class="rb-sub-name">▸ ဖုန်းပြင် အပိုပစ္စည်း အရင်း</div><div id="costServiceDet" class="rb-sub-val">0 Ks</div></div>
+      <div class="rb-row">
+        <div class="rb-name">💸 အထွေထွေ ထွက်ငွေ<div class="rb-sub">Manual Expenses (OPEX)</div></div>
+        <div id="grandExpense" class="rb-val" style="color:var(--warning)">0 Ks</div>
+      </div>
+    </div>
+
+    <!-- Donut Chart -->
+    <div class="chart-section">
+      <div class="chart-donut"><canvas id="financeChart"></canvas></div>
+      <div style="flex:1;">
+        <div class="sec-eyebrow" style="margin-bottom:12px">ငွေကြေးခွဲတမ်း</div>
+        <div class="cl-item"><div class="cl-dot" style="background:var(--success)"></div><span class="cl-name">ဝင်ငွေ (Revenue)</span></div>
+        <div class="cl-item"><div class="cl-dot" style="background:var(--danger)"></div><span class="cl-name">ထွက်ငွေ (Expenses & COGS)</span></div>
+      </div>
+    </div>
+
+    <!-- Personal Finance Dashboard Strip -->
+    <div class="pf-strip">
+      <div class="pf-head"><span class="pf-head-text">💳 Personal Summary</span></div>
+      <div class="pf-cols">
+        <div class="pf-col"><div class="pf-col-lbl">ဝင်ငွေ</div><div id="personalIncome" class="pf-col-val" style="color:var(--success)">+0</div></div>
+        <div class="pf-col"><div class="pf-col-lbl">ထွက်ငွေ</div><div id="personalExpense" class="pf-col-val" style="color:var(--danger)">-0</div></div>
+        <div class="pf-col"><div class="pf-col-lbl">လက်ကျန်</div><div id="personalNet" class="pf-col-val" style="color:var(--violet)">0</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- REPAIRS PAGE -->
+  <div id="page-repairs" class="page">
+    <div class="date-strip" style="margin: -20px -20px 20px -20px; border-radius:0;">
+      <div class="date-pill"><span class="date-pill-lbl">Start</span><input type="date" id="filterStartRep" class="date-pill-input"></div>
+      <div class="date-pill"><span class="date-pill-lbl">End</span><input type="date" id="filterEndRep" class="date-pill-input"></div>
+      <button onclick="syncFilters('rep')" class="btn-go">ရှာ →</button>
+    </div>
+
+    <div class="sec-head"><div><div class="sec-eyebrow">Repair Center</div><div class="sec-title">ဖုန်းပြင်စာရင်း</div></div></div>
+
+    <div id="pendingCollectionAlert" class="alert-bar ab-amber hidden">
+      <span class="ab-icon">🔔</span>
+      <div><div class="ab-text">လာမရွေးသေးသော ဖုန်း <span id="pendingCount">၀</span> လုံး ရှိနေပါသည်!</div></div>
+    </div>
+
+    <!-- Success Rate Tile -->
+    <div class="rate-tile">
+      <div class="rate-chart-sm"><canvas id="repairChart"></canvas></div>
+      <div class="rate-body">
+        <div class="rate-lbl">ပြင်ဆင် အောင်မြင်နှုန်း</div>
+        <div id="repairSuccessRate" class="rate-num">0%</div>
+        <div class="rate-note">ပြင်မရဖုန်းများကို နုတ်ပယ်တွက်သည်</div>
+      </div>
+      <div class="rate-right">
+        <div class="rate-avg-lbl">တစ်လုံးပျမ်းမျှ အမြတ်</div>
+        <div id="avgProfitPerPhone" class="rate-avg-val">0 Ks</div>
+      </div>
+    </div>
+
+    <!-- Stat grid -->
+    <div class="stat-grid">
+      <div class="sg-cell"><div class="sg-lbl">လက်ခံရရှိ</div><div id="repTotalRec" class="sg-val">0 လုံး</div></div>
+      <div class="sg-cell accent-lime"><div class="sg-lbl">ပြင်ဆင် အောင်မြင်</div><div id="repTotalDone" class="sg-val">0 လုံး</div></div>
+      <div class="sg-cell accent-rose" style="display:flex;align-items:center;justify-content:space-between">
+        <div><div class="sg-lbl">ပြင်မရ</div><div id="repTotalFail" class="sg-val">0 လုံး</div></div>
+        <div class="sg-void"><div><div class="sg-void-lbl">Void</div><div id="repTotalVoid" class="sg-void-val">0</div></div></div>
+      </div>
+      <div class="sg-cell accent-gold"><div class="sg-lbl">စစ်ဆေးဆဲ</div><div id="repTotalWait" class="sg-val">0 လုံး</div></div>
+    </div>
+
+    <div class="net-box">
+      <div class="nb-left"><div class="nb-lbl">ဖုန်းပြင် အသားတင်အမြတ်</div><div class="nb-sub">Total Income − Total Cost</div></div>
+      <div id="repNetProfit" class="nb-val">0 Ks</div>
+    </div>
+  </div>
+
+  <!-- INVENTORY PAGE -->
+  <div id="page-inventory" class="page">
+    <div class="sec-head"><div><div class="sec-eyebrow">Stock Management</div><div class="sec-title">စတော့လက်ကျန်</div></div></div>
+
+    <div id="lowStockAlert" class="alert-bar ab-rose hidden">
+      <span class="ab-icon">⚠️</span>
+      <div>
+        <div class="ab-text">လက်ကျန်နည်းနေသော ပစ္စည်း <span id="lowStockCount">၀</span> မျိုး!</div>
+        <div id="lowStockList" class="ab-sub"></div>
+      </div>
+    </div>
+
+    <div class="inv-heroes">
+      <div class="inv-hero"><div class="inv-hero-lbl">ရင်းနှီးမြှုပ်နှံမှု</div><div id="invTotalValue" class="inv-hero-val" style="color:var(--info)">0 Ks</div></div>
+      <div class="inv-hero"><div class="inv-hero-lbl">ရောင်းပါက အမြတ်</div><div id="invPotentialProfit" class="inv-hero-val" style="color:var(--success)">0 Ks</div></div>
+    </div>
+
+    <div class="stat-grid" style="margin-bottom:14px">
+      <div class="sg-cell"><div class="sg-lbl">ပစ္စည်းအမျိုးအစား</div><div id="invTotalTypes" class="sg-val">0 မျိုး</div></div>
+      <div class="sg-cell"><div class="sg-lbl">ပစ္စည်းခုရေ</div><div id="invTotalItems" class="sg-val">0 ခု</div></div>
+    </div>
+
+    <div class="prog-block">
+      <div class="prog-title">ပစ္စည်းအုပ်စု ခွဲခြားမှု</div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-name">Hardware & Parts</span><span id="invCatHardware" class="prog-pct">0%</span></div>
+        <div class="prog-track"><div id="barHardware" class="prog-fill" style="width:0%;background:var(--info)"></div></div>
+      </div>
+      <div class="prog-item">
+        <div class="prog-header"><span class="prog-name">Accessories / အထွေထွေ</span><span id="invCatAccessory" class="prog-pct">0%</span></div>
+        <div class="prog-track"><div id="barAccessory" class="prog-fill" style="width:0%;background:var(--violet)"></div></div>
+      </div>
+    </div>
+
+    <div class="top-block">
+      <div class="top-head"><span class="top-head-text">🔥 Top 5 အရောင်းရဆုံး ပစ္စည်းများ (ရွေးချယ်ထားသော ကာလအတွင်း)</span></div>
+      <div id="topSellingList"><div style="padding:20px;text-align:center;font-size:12px;color:var(--text-muted)">တွက်ချက်နေပါသည်...</div></div>
+    </div>
+  </div>
+
+  <!-- 🆕 NEW: PERSONAL DASHBOARD PAGE (MY WALLET) -->
+  <div id="page-personal-dashboard" class="page">
+    <div class="sec-head">
+      <div><div class="sec-eyebrow">Personal Finance</div><div class="sec-title">ကိုယ်ပိုင် ငွေစာရင်းသုံးသပ်ချက်</div></div>
+    </div>
+
+    <div class="input-group" style="margin-bottom:16px;">
+      <input type="month" id="pdMonthFilter" class="f-input" onchange="renderPersonalDashboard()">
+    </div>
+
+    <!-- Hero Metrics -->
+    <div class="metric-tile" style="background: linear-gradient(135deg, var(--violet), #b28cff);">
+      <div class="mt-label">ယခုလ ကိုယ်ပိုင် လက်ကျန်ငွေ</div>
+      <div id="pdNetBalance" class="mt-value">0 Ks</div>
+      <div style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.8); margin-top:4px;">
+        ဝင်ငွေ: <span id="pdTotalInc">+0</span> | ထွက်ငွေ: <span id="pdTotalExp">-0</span>
+      </div>
+    </div>
+
+    <!-- Progress Bar (Top Expenses) -->
+    <div class="prog-block">
+      <div class="prog-title">အသုံးစရိတ် ခွဲခြမ်းစိတ်ဖြာမှု (Top Expenses)</div>
+      <div id="pdExpenseBars"></div>
+    </div>
+
+    <!-- ခေါင်းစဉ်ခွဲအလိုက် အသေးစိတ် (Accordion) -->
+    <div class="top-block">
+      <div class="top-head"><span class="top-head-text" style="color: var(--primary);">📋 ခေါင်းစဉ်ခွဲအလိုက် အသေးစိတ်</span></div>
+      <div id="pdCategoryList"></div>
+    </div>
+  </div>
+
+  <!-- PERSONAL PAGE (Daily List) -->
+  <div id="page-personal" class="page">
+    <div class="sec-head"><div><div class="sec-eyebrow">Private Records</div><div class="sec-title">ကိုယ်ပိုင်နေ့စဉ်စာရင်း</div></div></div>
+    <div class="input-group" style="margin-bottom:16px;">
+        <input type="month" id="adminFinMonth" onchange="renderPersonalFinance()">
+    </div>
+    <div style="display:flex; gap:10px; margin-bottom:18px;">
+        <button class="btn-save" style="background:var(--success); color:#fff; flex:1;" onclick="openFinModalAdmin('ဝင်ငွေ', 'Personal', null)">+ ဝင်ငွေ</button>
+        <button class="btn-save" style="background:var(--danger); color:#fff; flex:1;" onclick="openFinModalAdmin('ထွက်ငွေ', 'Personal', null)">- ထွက်ငွေ</button>
+    </div>
+    <div id="adminPersonalList"></div>
+  </div>
+
+  <!-- LOGS PAGE -->
+  <div id="page-logs" class="page">
+    <div class="date-strip" style="margin: -20px -20px 20px -20px; border-radius:0;">
+      <div class="date-pill"><span class="date-pill-lbl">Start</span><input type="date" id="filterStartLogs" class="date-pill-input"></div>
+      <div class="date-pill"><span class="date-pill-lbl">End</span><input type="date" id="filterEndLogs" class="date-pill-input"></div>
+      <button onclick="syncFilters('logs')" class="btn-go">ရှာ →</button>
+    </div>
+
+    <div class="sec-head"><div><div class="sec-eyebrow">Activity</div><div class="sec-title">Logs & Users</div></div></div>
+
+    <!-- Users -->
+    <div class="user-block">
+      <div class="ub-head"><span>👥</span><span class="ub-head-text">Account Management</span></div>
+      <div id="usersList" class="scrollbar-hide" style="max-height:400px;overflow-y:auto"><div style="padding:20px;text-align:center;font-size:12px;color:var(--text-muted)">Loading...</div></div>
+    </div>
+
+    <!-- Logs -->
+    <div class="logs-block">
+      <div class="logs-head"><span>📝</span><span class="logs-head-text">Activity Log</span></div>
+      <div id="displayArea" class="scrollbar-hide" style="max-height:600px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- CONTROL / ARCHIVE PAGE -->
+  <div id="page-control" class="page">
+    <!-- PIN Verification Screen -->
+    <div id="pinContainer" style="text-align:center; padding: 40px 20px;">
+        <div style="font-size:40px; margin-bottom:10px;">🛡️</div>
+        <h3 style="font-size:20px; font-weight:800; color:var(--text-main); margin-bottom:6px;">Data Control</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:20px;">စနစ်ထိန်းချုပ်ရေးသို့ဝင်ရန် PIN ရိုက်ထည့်ပါ</p>
+        <input type="password" id="controlPinInput" style="text-align:center; font-size:24px; letter-spacing:8px; padding:12px; width:100%; max-width:250px; border:2px solid var(--border-light); border-radius:12px; margin-bottom:20px; outline:none;" placeholder="•••••">
+        <br>
+        <button class="btn-save" onclick="verifyControlPin()" style="width:100%; max-width:250px;">အတည်ပြုမည်</button>
+    </div>
+
+    <!-- Control Main Content -->
+    <div id="controlContent" class="hidden">
+        
+        <!-- ⚙️ NEW: Category Settings Entry Point -->
+        <div class="card" style="margin-bottom:20px; border-left:4px solid var(--primary);">
+            <div class="sec-head" style="margin-bottom:10px;"><div><div class="sec-eyebrow">Customization</div><div class="sec-title" style="font-size:16px;">⚙️ ခေါင်းစဉ်ခွဲများ သတ်မှတ်ရန်</div></div></div>
+            <p style="font-size:11px; color:var(--text-muted); margin-bottom:14px;">ငွေစာရင်းသွင်းရာတွင် သုံးမည့် အုပ်စုခွဲ (Sub-category) များကို မိမိစိတ်ကြိုက် အသစ်ထည့်/ဖျက် လုပ်နိုင်ပါသည်။</p>
+            <button class="btn-save" style="width:100%; background:var(--primary-light); color:var(--primary);" onclick="openCatSettingsModal()">⚙️ Settings ဖွင့်မည်</button>
+        </div>
+
+        <div class="sec-head"><div><div class="sec-eyebrow">Archive & Backup</div><div class="sec-title">မှတ်တမ်းဟောင်းများ</div></div></div>
+        
+        <div class="card" style="margin-bottom:20px;">
+            <span class="f-label">ရက်စွဲ အပိုင်းအခြား ရွေးချယ်ပါ</span>
+            <div style="display:flex; gap:10px; margin-bottom: 16px;">
+                <input type="date" id="ctrlStart" class="f-input" style="padding:10px;">
+                <input type="date" id="ctrlEnd" class="f-input" style="padding:10px;">
+            </div>
+            
+            <span class="f-label">စာရင်းအမျိုးအစား ရွေးချယ်ပါ</span>
+            <div class="chk-row"><input type="checkbox" id="chkTx" checked><label>ငွေစာရင်းများ (Transactions)</label></div>
+            <div class="chk-row"><input type="checkbox" id="chkRep" checked><label>ဖုန်းပြင်မှတ်တမ်းများ (Repairs)</label></div>
+            <div class="chk-row"><input type="checkbox" id="chkProd" checked><label>အရောင်း/စတော့ မှတ်တမ်းများ (Products)</label></div>
+            <div class="chk-row" style="border-bottom:none;"><input type="checkbox" id="chkLog" checked><label>Activity Logs များ</label></div>
+            
+            <button class="btn-save" style="width:100%; margin-top:10px;" onclick="calculateControlData()">🔍 စာရင်းရှာမည်</button>
+        </div>
+
+        <div id="ctrlResultBox" class="card hidden" style="text-align:center;">
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px;">ရွေးချယ်ထားသော စာရင်းပေါင်း</div>
+            <div id="ctrlCount" style="font-size:28px; font-weight:900; color:var(--primary); margin-bottom:16px;">0</div>
+            
+            <button class="btn-save" style="width:100%; background:var(--success); margin-bottom:10px;" onclick="exportControlCSV()">📥 Excel ဖြင့် သိမ်းမည်</button>
+            <button class="btn-save" style="width:100%; background:var(--danger);" onclick="deleteControlData()">🗑️ အပြီးတိုင် ရှင်းလင်းဖျက်ဆီးမည်</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav (Updated with 7 items) -->
+  <div class="bottom-nav">
+    <button class="bn-item active" id="bn-dashboard" onclick="switchPage('dashboard')"><span class="bn-icon">📊</span><span class="bn-label">Finance</span></button>
+    <button class="bn-item" id="bn-repairs" onclick="switchPage('repairs')"><span class="bn-icon">🛠</span><span class="bn-label">Repair</span></button>
+    <button class="bn-item" id="bn-inventory" onclick="switchPage('inventory')"><span class="bn-icon">📦</span><span class="bn-label">Stock</span></button>
+    
+    <!-- New Wallet Dashboard Tab -->
+    <button class="bn-item" id="bn-personal-dashboard" onclick="switchPage('personal-dashboard')"><span class="bn-icon">👛</span><span class="bn-label">My Wallet</span></button>
+    
+    <button class="bn-item" id="bn-personal" onclick="switchPage('personal')"><span class="bn-icon">💳</span><span class="bn-label">Personal</span></button>
+    <button class="bn-item" id="bn-logs" onclick="switchPage('logs')"><span class="bn-icon">📝</span><span class="bn-label">Logs</span></button>
+    <button class="bn-item" id="bn-control" onclick="switchPage('control')"><span class="bn-icon">🛡️</span><span class="bn-label">Control</span></button>
+  </div>
+</div>
+
+<!-- FULLSCREEN DAY VIEW FOR PERSONAL TAB -->
+<div id="fsAdminDayView" class="fullscreen-view">
+    <div class="app-header">
+        <button class="icon-btn" style="width:auto; padding:0 12px; font-weight:800; background:var(--bg-input); border:none;" onclick="closeAdminFullscreenDay()">Back</button>
+        <h2 id="fsAdminDayTitle" style="font-size:15px; font-weight:800; color:var(--text-main);">ရက်စွဲ စာရင်းအသေးစိတ်</h2>
+        <div style="width:60px;"></div>
+    </div>
+    <div style="overflow-y:auto; flex-grow:1; padding:20px; padding-bottom:90px; background:var(--bg-body);">
+        <div id="fsAdminDayDetailsList" style="max-width:600px; margin:0 auto;"></div>
+    </div>
+    <div style="position:fixed; bottom:0; left:0; width:100%; padding:14px 20px calc(14px + var(--safe-bottom)); background:var(--bg-surface); border-top:1px solid var(--border-light); display:flex; gap:10px; z-index:501;">
+        <button class="btn-save" style="background:var(--success); color:#fff; flex:1;" id="btnAdminFsAddInc">+ ဝင်ငွေ</button>
+        <button class="btn-save" style="background:var(--danger); color:#fff; flex:1;" id="btnAdminFsAddExp">- ထွက်ငွေ</button>
+    </div>
+</div>
+
+<!-- ⚙️ NEW: Category Settings Modal -->
+<div id="catModal" class="modal-bg hidden">
+  <div class="modal-sheet" id="catSheet">
+    <div class="modal-top">
+      <span class="modal-title">⚙️ ခေါင်းစဉ်များ ပြင်ဆင်ရန်</span>
+      <button onclick="closeCatSettingsModal()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="catModalBody"></div>
+    <div class="modal-foot">
+      <button onclick="closeCatSettingsModal()" class="btn-save" style="width:100%;">သိမ်းဆည်းပြီး ပိတ်မည်</button>
+    </div>
+  </div>
+</div>
+
+<!-- Finance Modal for Admin -->
+<div id="finModalAdmin" class="modal-bg hidden">
+  <div class="modal-sheet" id="finModalContent">
+    <div class="modal-top">
+      <span class="modal-title">ငွေစာရင်းသွင်းရန်</span>
+      <button onclick="closeFinModalAdmin()" class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="finId">
+      
+      <div class="f-group">
+        <label class="f-label">အမျိုးအစား *</label>
+        <div class="f-toggle">
+          <button id="btnInc" onclick="setFinTypeAdmin('ဝင်ငွေ')" class="f-toggle-btn on-lime">ဝင်ငွေ (+)</button>
+          <button id="btnExp" onclick="setFinTypeAdmin('ထွက်ငွေ')" class="f-toggle-btn">ထွက်ငွေ (-)</button>
+        </div>
+        <input type="hidden" id="finType" value="ဝင်ငွေ">
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">ခေါင်းစဉ် (Main Category)</label>
+        <select id="finCat" class="f-select" onchange="updateSubCatAdmin()">
+          <option value="Personal">Personal (ကိုယ်ပိုင်ငွေ)</option>
+          <option value="Capital">Capital (Admin မှ ဆိုင်သို့ စိုက်ငွေ)</option>
+          <option value="StockPurchase">StockPurchase (ပစ္စည်းဝယ်ယူခြင်း)</option>
+          <option value="Service">Service (ဆိုင်လုပ်ငန်း)</option>
+          <option value="Sales">Sales (အရောင်းအဝယ်)</option>
+          <option value="Office">Office (ရုံးခန်း)</option>
+          <option value="Home">Home (အိမ်)</option>
+        </select>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">အုပ်စုခွဲ (Sub Category)</label>
+        <select id="finSubCat" class="f-select"></select>
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">အကြောင်းအရာ *</label>
+        <input type="text" id="finName" class="f-input" placeholder="ဥပမာ - မုန့်ဖိုး / ဆိုင်လခ">
+      </div>
+
+      <div class="f-group">
+        <label class="f-label">ပမာဏ (Ks) *</label>
+        <input type="number" id="finAmt" class="f-input" placeholder="0">
+      </div>
+
+      <div class="f-group" style="margin-bottom:0">
+        <label class="f-label">ရက်စွဲ (ရွေးချယ်ရန်)</label>
+        <input type="date" id="finDate" class="f-input">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button onclick="closeFinModalAdmin()" class="btn-cancel">ပိတ်မည်</button>
+      <button onclick="saveFinanceAdmin()" class="btn-save">သိမ်းမည်</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// Firebase Setup
+// ═══════════════════════════════════════════
+const firebaseConfig={apiKey:"AIzaSyC5sGKGeD_zht-Qknp6VPwfPIChqwvX8MQ",authDomain:"masstore-c32a7.firebaseapp.com",projectId:"masstore-c32a7",storageBucket:"masstore-c32a7.firebasestorage.app",messagingSenderId:"321720130071",appId:"1:321720130071:web:20aab19001cc8bb3cd9a52"};
+if(!firebase.apps.length)firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth();
+const db=firebase.firestore();
+
+// --- 1. ENABLE OFFLINE PERSISTENCE ---
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(function(err) { console.warn("Firestore Persistence Error:", err.code); });
+
+// --- 2. ONLINE/OFFLINE SYNC STATUS UI ---
+document.addEventListener("DOMContentLoaded", function() {
+    const ahRight = document.querySelector('.ah-right');
+    if(ahRight) {
+        const statusBadge = document.createElement('div');
+        statusBadge.id = 'syncStatusBadge';
+        statusBadge.style.cssText = 'font-size:10px; font-weight:800; padding:6px 10px; border-radius:8px; display:flex; align-items:center; gap:6px; background:var(--bg-input); color:var(--text-muted); margin-right:8px;';
+        statusBadge.innerHTML = '<span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:var(--text-muted);"></span><span id="syncText">Checking...</span>';
+        ahRight.insertBefore(statusBadge, ahRight.firstChild);
+    }
+});
+
+let pendingWritesCount = 0;
+function updateSyncUI() {
+    const dot = document.getElementById('syncDot');
+    const txt = document.getElementById('syncText');
+    if(!dot || !txt) return;
+    
+    const isOnline = navigator.onLine;
+    if (isOnline) {
+        if (pendingWritesCount > 0) { dot.style.background = 'var(--warning)'; txt.style.color = 'var(--warning)'; txt.innerText = 'Syncing...'; } 
+        else { dot.style.background = 'var(--success)'; txt.style.color = 'var(--success)'; txt.innerText = 'Online'; }
+    } else {
+        dot.style.background = 'var(--danger)'; txt.style.color = 'var(--danger)';
+        txt.innerText = (pendingWritesCount > 0) ? 'Pending Changes' : 'Offline';
+    }
+}
+window.addEventListener('online', updateSyncUI);
+window.addEventListener('offline', updateSyncUI);
+setInterval(updateSyncUI, 500);
+
+function checkPendingWrites(snapshot) {
+    pendingWritesCount = snapshot.metadata.hasPendingWrites ? 1 : 0;
+    updateSyncUI();
+}
+
+// ═══════════════════════════════════════════
+// BACKWARD-COMPATIBLE DATA HELPERS
+// ═══════════════════════════════════════════
+function asDate(value, fallback = null) {
+  if (!value) return fallback;
+  try {
+    const d = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+    return Number.isNaN(d.getTime()) ? fallback : d;
+  } catch (_) { return fallback; }
+}
+function money(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+function text(value, fallback = '') {
+  return value === null || value === undefined ? fallback : String(value);
+}
+function normalizeTransaction(doc) {
+  const d = doc.data ? doc.data() : doc;
+  return { id: doc.id || d.id, ...d, type: text(d.type, ''), group: text(d.group || d.category, ''), subGroup: text(d.subGroup, ''), name: text(d.name, 'အကြောင်းအရာမရှိ'), amount: money(d.amount), date: d.date || d.exactDate || d.occurredAt || d.createdAt || null, exactDate: d.exactDate || d.occurredAt || d.createdAt || null, history: Array.isArray(d.history) ? d.history : [] };
+}
+function normalizeProduct(doc) {
+  const d = doc.data ? doc.data() : doc;
+  return { id: doc.id || d.id, ...d, name: text(d.name || d.productName, 'အမည်မရှိ'), category: text(d.category, 'အထွေထွေ'), amount: money(d.amount ?? d.quantity), quantity: money(d.quantity ?? d.amount), costPrice: money(d.costPrice ?? d.unitCost), unitCost: money(d.unitCost ?? d.costPrice), price: money(d.price ?? d.sellingPrice), sellingPrice: money(d.sellingPrice ?? d.price), status: text(d.status, 'ပစ္စည်းရှိ'), createdAt: d.createdAt || null, updatedAt: d.updatedAt || d.timestamp || null, history: Array.isArray(d.history) ? d.history : [] };
+}
+function normalizeRepair(doc) {
+  const d = doc.data ? doc.data() : doc;
+  return { id: doc.id || d.id, ...d, vrno: d.vrno ?? d.vrNo ?? '', date: text(d.date, ''), name: text(d.name || d.customerName, ''), phone: text(d.phone, ''), model: text(d.model, ''), issue: text(d.issue, ''), status: text(d.status, 'စစ်ဆေးပြုပြင်နေဆဲ'), cost: money(d.cost), income: money(d.income), receivedAt: d.receivedAt || d.timestamp || d.createdAt || null, completedAt: d.completedAt || null, collectedAt: d.collectedAt || null, timestamp: d.timestamp || d.createdAt || null, updatedAt: d.updatedAt || null, history: Array.isArray(d.history) ? d.history : [] };
+}
+function auditEntry(message) {
+  return { msg: message, by: currentUser ? (currentUser.displayName || currentUser.email) : 'Admin', time: new Date().toISOString() };
+}
+function showSyncError(name, err) {
+  console.error(`[${name}]`, err);
+  Swal.close();
+  const code = err && err.code ? ` (${err.code})` : '';
+  if(navigator.onLine) {
+    Swal.fire({ icon: 'error', title: 'Data ချိန်ကိုက်မှု အမှား', text: `${name} ကို ဖတ်၍မရပါ${code}`, confirmButtonText: 'ပြန်စမ်းမည်' }).then(() => location.reload());
+  }
+}
+function isIncome(t) { return t === 'ဝင်ငွေ' || t === 'income'; }
+function isExpense(t) { return t === 'ထွက်ငွေ' || t === 'expense'; }
+function isPersonalGroup(g) { return g === 'Personal' || g === 'personal'; }
+function isCapitalGroup(g) { return g === 'Capital' || g === 'capital'; }
+function isStockPurchaseGroup(g) { return g === 'StockPurchase' || g === 'stock_purchase'; }
+
+// ═══════════════════════════════════════════
+// State & Real-time Listeners
+// ═══════════════════════════════════════════
+let currentUser=null;
+let rawTransactions=[], rawRepairs=[], rawProducts=[], rawLogs=[], rawUsers=[];
+let finChartInst=null, repChartInst=null;
+let adminPersonalDays = {}; 
+let unsubTx, unsubRep, unsubProd, unsubLog, unsubUser;
+let initialLoad = true;
+
+function getLocalYMD(dateObj = new Date()) {
+    const tzOffset = dateObj.getTimezoneOffset() * 60000;
+    return new Date(dateObj.getTime() - tzOffset).toISOString().split('T')[0];
+}
+
+let todayStr = getLocalYMD();
+let firstDayStr = todayStr.substring(0, 8) + "01";
+
+let globalStartDate = new Date(firstDayStr + "T00:00:00");
+let globalEndDate = new Date(todayStr + "T23:59:59.999");
+
+document.getElementById('filterStart').value = firstDayStr;
+document.getElementById('filterEnd').value = todayStr;
+document.getElementById('filterStartRep').value = firstDayStr;
+document.getElementById('filterEndRep').value = todayStr;
+document.getElementById('filterStartLogs').value = firstDayStr;
+document.getElementById('filterEndLogs').value = todayStr;
+
+document.getElementById('adminFinMonth').value = todayStr.substring(0, 7);
+document.getElementById('pdMonthFilter').value = todayStr.substring(0, 7); // Initializer for new tab
+
+document.getElementById('ctrlStart').value = firstDayStr;
+document.getElementById('ctrlEnd').value = todayStr;
+
+// ═══════════════════════════════════════════
+// DYNAMIC SETTINGS (Sub-Categories)
+// ═══════════════════════════════════════════
+let mySubCategories = {
+    "Personal": ["စားသောက်စရိတ် (Food)", "ကလေးအသုံးစရိတ် (Family)", "ကျန်းမာရေး (Health)", "သွားလာရေး (Transport)", "အကြွေး/ငွေလွှဲ (Loans)", "အထွေထွေ (Misc)"],
+    "Service": ["ဖုန်းပြင်စရိတ် / လျော်ကြေး", "ဆိုင်လည်ပတ်စရိတ်", "ကြိုထုတ်ငွေ / Advance"],
+    "StockPurchase": ["Smart မှဝယ်ယူခြင်း", "Nine Star မှဝယ်ယူခြင်း", "MDY မှဝယ်ယူခြင်း", "အခြားဆိုင်မှဝယ်ယူခြင်း"],
+    "Office": ["မီးလင်းခ / အင်တာနက်", "ဆိုင်လခ (Rent)", "အခြားရုံးသုံး"],
+    "Sales": ["Accessories ရောင်းရငွေ", "ဖုန်းဘေလ်/ကတ် ရောင်းရငွေ"],
+    "Capital": ["အိမ်ဆောက်/အခန်းချဲ့ (Home Asset)", "ဆိုင်သို့အရင်းထည့်ခြင်း (Capital Injection)"],
+    "Home": ["အိမ်သုံးအထွေထွေ"]
+};
+
+function loadDynamicCategories() {
+    db.collection("app_settings").doc("categories").onSnapshot(doc => {
+        if(doc.exists) { mySubCategories = doc.data(); updateSubCatAdmin(); }
+    });
+}
+
+function openCatSettingsModal() {
+    renderCatModalBody();
+    document.getElementById('catModal').classList.remove('hidden');
+    setTimeout(()=>document.getElementById('catSheet').classList.add('open'), 10);
+}
+
+function closeCatSettingsModal() {
+    document.getElementById('catSheet').classList.remove('open');
+    setTimeout(()=>document.getElementById('catModal').classList.add('hidden'), 320);
+}
+
+function renderCatModalBody() {
+    let html = '';
+    const mainCats = ["Personal", "Service", "StockPurchase", "Office", "Sales", "Capital", "Home"];
+    
+    mainCats.forEach(mainCat => {
+        if(!mySubCategories[mainCat]) mySubCategories[mainCat] = ["အထွေထွေ"];
+        let pills = mySubCategories[mainCat].map((sub, idx) => 
+            `<div style="display:inline-flex; align-items:center; background:var(--bg-elevated); border:1px solid var(--border-light); padding:4px 10px; border-radius:16px; margin:0 6px 6px 0; font-size:11px;">
+                ${sub} 
+                <span style="color:var(--danger); margin-left:6px; cursor:pointer; font-weight:800;" onclick="deleteSubCat('${mainCat}', ${idx})">✕</span>
+            </div>`
+        ).join('');
+        
+        html += `<div style="margin-bottom:16px;">
+                    <div style="font-size:13px; font-weight:800; color:var(--text-main); margin-bottom:8px;">📁 ${mainCat}</div>
+                    <div>${pills}</div>
+                    <button onclick="promptAddSubCat('${mainCat}')" style="background:none; border:1px dashed var(--primary); color:var(--primary); padding:4px 10px; border-radius:16px; font-size:11px; font-weight:700; cursor:pointer; margin-top:4px;">+ အသစ်ထည့်မည်</button>
+                </div>`;
+    });
+    document.getElementById('catModalBody').innerHTML = html;
+}
+
+async function promptAddSubCat(mainCat) {
+    const { value: newCat } = await Swal.fire({
+        title: `Add to ${mainCat}`,
+        input: 'text',
+        inputPlaceholder: 'ခေါင်းစဉ်ခွဲ အမည်ရိုက်ပါ',
+        showCancelButton: true
+    });
+    if (newCat && newCat.trim() !== '') {
+        mySubCategories[mainCat].push(newCat.trim());
+        saveCategoriesToDB();
+    }
+}
+
+function deleteSubCat(mainCat, idx) {
+    mySubCategories[mainCat].splice(idx, 1);
+    saveCategoriesToDB();
+}
+
+function saveCategoriesToDB() {
+    db.collection("app_settings").doc("categories").set(mySubCategories)
+      .then(() => renderCatModalBody())
+      .catch(e => Swal.fire('Error', e.message, 'error'));
+}
+
+// ═══════════════════════════════════════════
+// Auth
+// ═══════════════════════════════════════════
+auth.onAuthStateChanged(async(user)=>{
+  const splash=document.getElementById('splash');
+  const login=document.getElementById('login-view');
+  const app=document.getElementById('admin-view');
+  if(user){
+    try{
+      const doc=await db.collection("users").doc(user.uid).get({source: navigator.onLine ? 'server' : 'cache'});
+      const data=doc.data() || {};
+      if(data&&data.role==='admin'){
+        currentUser=user;
+        splash.classList.add('hidden'); login.classList.add('hidden'); app.style.display='flex';
+        db.collection("users").doc(currentUser.uid).set({lastOnline: new Date()},{merge:true});
+        setupRealtimeListeners();
+        loadDynamicCategories();
+      }else{throw new Error("Admin မဟုတ်ပါ")}
+    }catch(e){
+      try {
+          const cachedDoc = await db.collection("users").doc(user.uid).get({source:'cache'});
+          const cData = cachedDoc.data() || {};
+          if(cData && cData.role === 'admin') {
+              currentUser=user;
+              splash.classList.add('hidden'); login.classList.add('hidden'); app.style.display='flex';
+              setupRealtimeListeners();
+              loadDynamicCategories();
+              Swal.fire({icon:'info', title:'Offline Mode', text:'အင်တာနက် မရှိပါသဖြင့် သိမ်းဆည်းထားသော အချက်အလက်များကို ပြသနေပါသည်။', toast: true, position: 'top-end', showConfirmButton: false, timer: 3000});
+          } else { throw new Error(); }
+      } catch(offlineErr) {
+          auth.signOut();
+          splash.classList.add('hidden'); app.style.display='none'; login.classList.remove('hidden');
+          Swal.fire('Connection Error','အင်တာနက် မရှိပါသဖြင့် ဝင်ရောက်၍ မရပါ။','error');
+      }
+    }
+  }else{
+    if(unsubTx) unsubTx(); if(unsubRep) unsubRep(); if(unsubProd) unsubProd(); if(unsubLog) unsubLog(); if(unsubUser) unsubUser();
+    splash.classList.add('hidden'); app.style.display='none'; login.classList.remove('hidden');
+  }
+});
+
+async function loginAdmin(){
+  const e=document.getElementById('adminEmail').value.trim();
+  const p=document.getElementById('adminPassword').value;
+  if(!e||!p)return Swal.fire('အမှား','အချက်အလက် ဖြည့်ပါ','warning');
+  document.getElementById('splash').classList.remove('hidden');
+  try{await auth.signInWithEmailAndPassword(e,p);}
+  catch(err){document.getElementById('splash').classList.add('hidden');Swal.fire('Error', err.message,'error');}
+}
+function logoutAdmin(){auth.signOut();}
+
+// ═══════════════════════════════════════════
+// Real-time Sync (Auto Update)
+// ═══════════════════════════════════════════
+function setupRealtimeListeners() {
+    if(initialLoad && navigator.onLine) Swal.fire({title:'Data ချိန်ကိုက်နေပါသည်...', allowOutsideClick:false, didOpen:()=>Swal.showLoading()});
+    let loaded = {t:false, r:false, p:false, l:false, u:false};
+    
+    function checkReady() {
+        if(initialLoad && loaded.t && loaded.r && loaded.p && loaded.l && loaded.u) {
+            Swal.close(); initialLoad = false;
+            applyGlobalFilter(); renderPersonalFinance(); renderPersonalDashboard(); renderUsers();
+        } else if(!initialLoad) {
+            applyGlobalFilter(); renderPersonalFinance(); renderPersonalDashboard(); renderUsers();
+        }
+    }
+
+    const opts = { includeMetadataChanges: true }; 
+    unsubTx = db.collection("transactions").orderBy("date","desc").onSnapshot(opts, snap => { checkPendingWrites(snap); rawTransactions = snap.docs.map(normalizeTransaction); loaded.t = true; checkReady(); }, err => showSyncError("Transactions", err));
+    unsubRep = db.collection("repairs").orderBy("timestamp","desc").onSnapshot(opts, snap => { checkPendingWrites(snap); rawRepairs = snap.docs.map(normalizeRepair); loaded.r = true; checkReady(); }, err => showSyncError("Repairs", err));
+    unsubProd = db.collection("products").onSnapshot(opts, snap => { checkPendingWrites(snap); rawProducts = snap.docs.map(normalizeProduct); loaded.p = true; checkReady(); }, err => showSyncError("Products", err));
+    unsubLog = db.collection("activity_logs").orderBy("timestamp","desc").limit(800).onSnapshot(opts, snap => { checkPendingWrites(snap); rawLogs = snap.docs.map(d=>({id:d.id, ...d.data()})); loaded.l = true; checkReady(); }, err => showSyncError("Activity Logs", err));
+    unsubUser = db.collection("users").orderBy("lastOnline","desc").onSnapshot(opts, snap => { checkPendingWrites(snap); rawUsers = snap.docs.map(d=>({id:d.id, ...d.data()})); loaded.u = true; checkReady(); }, err => showSyncError("Users", err));
+}
+
+// ═══════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════
+function switchPage(page){
+  ['dashboard','repairs','inventory', 'personal-dashboard', 'personal', 'logs', 'control'].forEach(p=>{
+    document.getElementById('page-'+p).classList.remove('active');
+    document.getElementById('bn-'+p).classList.remove('active');
+  });
+  document.getElementById('page-'+page).classList.add('active');
+  document.getElementById('bn-'+page).classList.add('active');
+  
+  if(page !== 'control') {
+      document.getElementById('pinContainer').classList.remove('hidden');
+      document.getElementById('controlContent').classList.add('hidden');
+      document.getElementById('ctrlResultBox').classList.add('hidden');
+  }
+}
+
+function syncFilters(source) {
+    let s, e;
+    if (source === 'rep') { s = document.getElementById("filterStartRep").value; e = document.getElementById("filterEndRep").value; }
+    else if (source === 'logs') { s = document.getElementById("filterStartLogs").value; e = document.getElementById("filterEndLogs").value; }
+    
+    document.getElementById("filterStart").value = s; document.getElementById("filterEnd").value = e;
+    document.getElementById("filterStartRep").value = s; document.getElementById("filterEndRep").value = e;
+    document.getElementById("filterStartLogs").value = s; document.getElementById("filterEndLogs").value = e;
+    
+    applyGlobalFilter();
+}
+
+// ═══════════════════════════════════════════
+// 📊 Main Dashboard Logic 
+// ═══════════════════════════════════════════
+function applyGlobalFilter(){
+  let s = document.getElementById("filterStart").value;
+  let e = document.getElementById("filterEnd").value;
+  if(!s||!e) return;
+  if (s > e) { return Swal.fire('ရက်စွဲမှားနေပါသည်', 'စတင်ရက်သည် ဆုံးရက်ထက် မကြီးရပါ', 'warning'); }
+
+  globalStartDate = new Date(s + "T00:00:00");
+  globalEndDate = new Date(e + "T23:59:59.999");
+
+  let inc = 0, exp = 0, cashIn = 0, cashOut = 0;
+  let pInc = 0, pExp = 0;
+  let salesCost = 0, repCost = 0;
+  let unsoldCost = 0, pendingRepCost = 0;
+  let rRec = 0, rDone = 0, rFail=0, rWait=0, rPick=0, rVoid=0, rTInc=0, rTCost=0;
+
+  // 1. Transactions Logic
+  rawTransactions.forEach(d=>{
+    let td = asDate(d.date);
+    if(td && td >= globalStartDate && td <= globalEndDate){
+      let a = Number(d.amount||0), g = d.group||"";
+      if(g === "Personal"){
+          if(d.type==='ဝင်ငွေ') pInc+=a; else pExp+=a;
+      } else if(isCapitalGroup(g)) {
+          if(d.type==='ဝင်ငွေ') cashIn+=a; else cashOut+=a; 
+      } else if(isStockPurchaseGroup(g)) {
+          if(isExpense(d.type)) cashOut+=a; else if(isIncome(d.type)) cashIn+=a; 
+      } else {
+          if(isIncome(d.type)) { inc+=a; cashIn+=a; } else if(isExpense(d.type)) { exp+=a; cashOut+=a; }
+      }
+    }
+  });
+
+  // 2. Repairs Logic
+  rawRepairs.forEach(d=>{
+    let rd = asDate(d.collectedAt || d.completedAt || d.updatedAt || d.receivedAt || d.timestamp) || asDate(d.date); 
+    let s = d.status||"";
+    
+    if(rd >= globalStartDate && rd <= globalEndDate){
+        rRec++;
+        if(s==='ပယ်ဖျက် (Void)') rVoid++;
+        else if(s.includes("အောင်မြင်")||s.includes("ပြင်ပြီး")) rDone++;
+        else if(s.includes("ပြင်မရ")) rFail++;
+        else rWait++;
+        
+        if(s==="ပြင်ပြီး-မရွေးသေး"||s==="ပြင်မရ-မရွေးသေး") rPick++;
+
+        if(s.includes('ထုတ်ယူပြီး') && !s.includes('ပြင်မရ')){
+            repCost += Number(d.cost||0); rTInc += Number(d.income||0); rTCost += Number(d.cost||0);
+        }
+    }
+    if(!s.includes('ထုတ်ယူပြီး') && s !== 'ပယ်ဖျက် (Void)') {
+        pendingRepCost += Number(d.cost||0);
+    }
+  });
+
+  // 3. Products Logic
+  let invTypes = 0, invItems = 0, hw = 0, acc = 0, low = [], sold = {};
+  rawProducts.forEach(p=>{
+    let pd = asDate(p.updatedAt || p.createdAt);
+    let qty = Number(p.amount||0);
+    
+    if(p.status === 'ရောင်းပြီး'){
+      if(pd && pd >= globalStartDate && pd <= globalEndDate) {
+          salesCost += Number(p.costPrice||0);
+          let n = (p.name||"").replace(" (ရောင်းပြီး)",""); sold[n] = (sold[n]||0) + qty;
+      }
+    } else {
+      unsoldCost += (qty * Number(p.costPrice||0));
+      invTypes++; invItems += qty;
+      if((p.category||"")===("Hardwareအပိုပစ္စည်")) hw++; else acc++;
+      if(qty<=1 && p.status!=="လက်ကျန်ပြတ်") low.push(`${p.name}(${qty})`);
+    }
+  });
+
+  let totalCOGS = repCost + salesCost;
+  let netProfit = inc - (exp + totalCOGS);
+  let totalCashOnHand = cashIn - cashOut;
+  let margin = inc > 0 ? Math.round((netProfit/inc)*100) : 0;
+  let pNet = pInc - pExp;
+
+  // Render Dashboard
+  setText("dashCashOnHand", totalCashOnHand.toLocaleString() + " Ks");
+  setText("dashInvested", (unsoldCost + pendingRepCost).toLocaleString() + " Ks");
+  setText("dashUnsold", unsoldCost.toLocaleString() + " Ks");
+  setText("dashPending", pendingRepCost.toLocaleString() + " Ks");
+  
+  setText("grandNetProfit", netProfit.toLocaleString() + " Ks");
+  setText("grandMarginTile", margin + "%");
+  setText("grandMargin", margin + "%");
+  
+  setText("grandIncome", inc.toLocaleString() + " Ks");
+  setText("grandCOGS", "-" + totalCOGS.toLocaleString() + " Ks");
+  setText("costSalesDet", salesCost.toLocaleString() + " Ks");
+  setText("costServiceDet", repCost.toLocaleString() + " Ks");
+  setText("grandExpense", "-" + exp.toLocaleString() + " Ks");
+
+  setText("personalIncome", "+"+pInc.toLocaleString() + " Ks");
+  setText("personalExpense", "-"+pExp.toLocaleString() + " Ks");
+  setText("personalNet", pNet.toLocaleString() + " Ks");
+
+  drawFinChart(inc, (exp + totalCOGS));
+
+  // Render Repairs Stats
+  setText("repTotalRec", rRec + " လုံး");
+  setText("repTotalDone", rDone + " လုံး");
+  setText("repTotalFail", rFail + " လုံး");
+  setText("repTotalWait", rWait + " လုံး");
+  setText("repTotalVoid", "" + rVoid);
+  
+  let rNet = rTInc - rTCost;
+  setText("repNetProfit", rNet.toLocaleString() + " Ks");
+  setText("avgProfitPerPhone", (rDone>0 ? Math.round(rNet/rDone) : 0).toLocaleString() + " Ks");
+  let att = rDone+rFail, sr = att>0 ? Math.round((rDone/att)*100) : 0;
+  setText("repairSuccessRate", sr + "%");
+  
+  const pa = document.getElementById("pendingCollectionAlert");
+  if(rPick>0){setText("pendingCount",rPick);pa.classList.remove("hidden");} else pa.classList.add("hidden");
+  
+  drawRepChart(rDone, rFail, rWait);
+
+  // Render Inventory Stats
+  setText("invTotalValue", unsoldCost.toLocaleString() + " Ks");
+  setText("invTotalTypes", invTypes + " မျိုး");
+  setText("invTotalItems", invItems + " ခု");
+  let tc = hw+acc, hp = tc>0 ? Math.round((hw/tc)*100) : 0, ap = tc>0 ? 100-hp : 0;
+  setText("invCatHardware", hp+"%"); document.getElementById("barHardware").style.width=hp+"%";
+  setText("invCatAccessory", ap+"%"); document.getElementById("barAccessory").style.width=ap+"%";
+
+  const la = document.getElementById('lowStockAlert');
+  if(low.length){setText("lowStockCount",low.length);setText("lowStockList",low.slice(0,5).join(', ')+(low.length>5?' ...':''));la.classList.remove('hidden');}
+  else la.classList.add('hidden');
+
+  let top = Object.entries(sold).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  document.getElementById('topSellingList').innerHTML = top.map((item,i)=>`<div class="top-item"><span class="top-rank">#${i+1}</span><span class="top-name">${item[0]}</span><span class="top-qty">${item[1]} ခု</span></div>`).join('')||'<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-muted)">မှတ်တမ်းမရှိပါ</div>';
+
+  renderSelectedDateData(); // Logs
+}
+
+function setText(id,v){const e=document.getElementById(id);if(e)e.innerText=v;}
+
+
+// ═══════════════════════════════════════════
+// 👛 Personal Dashboard (My Wallet) Logic 
+// ═══════════════════════════════════════════
+function renderPersonalDashboard() {
+    let monthStr = document.getElementById('pdMonthFilter').value;
+    if(!monthStr) return;
+
+    let totalInc = 0, totalExp = 0;
+    let categoryTotals = {}; 
+    let categoryLogs = {};
+
+    rawTransactions.forEach(d => {
+        // ကိုယ်ပိုင်အသုံးစရိတ် နှင့် အိမ်အသုံးစရိတ်များကိုသာ ခွဲခြမ်းစိတ်ဖြာမည်
+        if (d.group === 'Personal' || d.group === 'Home') {
+            let dObj = asDate(d.date); 
+            if (!dObj) return;
+            let mStr = dObj.getFullYear() + "-" + String(dObj.getMonth()+1).padStart(2,'0');
+            
+            if (mStr === monthStr) {
+                let amt = Number(d.amount);
+                let subCat = d.subGroup || 'အထွေထွေ';
+
+                if (isIncome(d.type)) {
+                    totalInc += amt;
+                } else if (isExpense(d.type)) {
+                    totalExp += amt;
+                    
+                    // ပေါင်းစပ်တွက်ချက်ခြင်း နှင့် မှတ်တမ်းသိမ်းခြင်း
+                    if (!categoryTotals[subCat]) {
+                        categoryTotals[subCat] = 0;
+                        categoryLogs[subCat] = [];
+                    }
+                    categoryTotals[subCat] += amt;
+                    categoryLogs[subCat].push(d);
+                }
+            }
+        }
+    });
+
+    let netBalance = totalInc - totalExp;
+
+    // အပေါ်ပိုင်း UI သို့ ထည့်သွင်းခြင်း
+    document.getElementById('pdNetBalance').innerText = netBalance.toLocaleString() + " Ks";
+    document.getElementById('pdTotalInc').innerText = "+" + totalInc.toLocaleString();
+    document.getElementById('pdTotalExp').innerText = "-" + totalExp.toLocaleString();
+
+    let sortedCats = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1]);
+    let barsHtml = '';
+    let listHtml = '';
+
+    sortedCats.forEach((cat, idx) => {
+        let catName = cat[0];
+        let catAmt = cat[1];
+        let pct = totalExp > 0 ? Math.round((catAmt / totalExp) * 100) : 0;
+        let color = ['var(--danger)', 'var(--warning)', 'var(--info)', 'var(--violet)', 'var(--success)'][idx % 5];
+        let safeId = "cat_detail_" + idx; 
+
+        // Progress Bar (Top 5 များကိုသာ ပြသမည်)
+        if (idx < 5) {
+            barsHtml += `
+            <div class="prog-item">
+                <div class="prog-header">
+                    <span class="prog-name">${catName}</span>
+                    <span class="prog-pct">${pct}%</span>
+                </div>
+                <div class="prog-track">
+                    <div class="prog-fill" style="width:${pct}%; background:${color}"></div>
+                </div>
+            </div>`;
+        }
+
+        // အသေးစိတ် မှတ်တမ်းများ (Accordion Inner HTML) Date & Time ဖြင့်
+        let innerLogsHtml = categoryLogs[catName].sort((a,b) => asDate(b.exactDate || b.date) - asDate(a.exactDate || a.date)).map(l => {
+            let logDateTime = asDate(l.exactDate || l.date) || new Date();
+            let logDateStr = getLocalYMD(logDateTime);
+            let logTimeStr = logDateTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            return `
+            <div class="cat-detail-row">
+                <div>
+                    <div class="cat-detail-name">${l.name}</div>
+                    <div class="cat-detail-date">📅 ${logDateStr} &nbsp;•&nbsp; ⏱ ${logTimeStr}</div>
+                </div>
+                <div class="cat-detail-amt">-${Number(l.amount).toLocaleString()} Ks</div>
+            </div>`;
+        }).join('');
+
+        // နှိပ်လို့ရမည့် ခေါင်းစဉ် (Accordion Button)
+        listHtml += `
+        <div class="top-item" onclick="toggleCatDetails('${safeId}')" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <span class="top-rank" style="color:${color}">●</span>
+                <span class="top-name">${catName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-weight:800; color:var(--text-main); font-size:13px;">${catAmt.toLocaleString()}</span>
+                <span id="icon_${safeId}" style="font-size:10px; color:var(--text-muted); transition:transform 0.2s;">▼</span>
+            </div>
+        </div>
+        <div id="${safeId}" class="cat-detail-box">
+            ${innerLogsHtml}
+        </div>`;
+    });
+
+    document.getElementById('pdExpenseBars').innerHTML = barsHtml || '<div style="text-align:center; font-size:12px; color:var(--text-muted);">သုံးစရိတ်မရှိပါ</div>';
+    document.getElementById('pdCategoryList').innerHTML = listHtml || '<div style="text-align:center; padding:16px; font-size:12px; color:var(--text-muted);">မှတ်တမ်းမရှိပါ</div>';
+}
+
+function toggleCatDetails(id) {
+    let detailBox = document.getElementById(id);
+    let icon = document.getElementById("icon_" + id);
+    
+    if (detailBox.style.display === "block") {
+        detailBox.style.display = "none";
+        icon.style.transform = "rotate(0deg)";
+    } else {
+        detailBox.style.display = "block";
+        icon.style.transform = "rotate(180deg)";
+    }
+}
+
+
+// ═══════════════════════════════════════════
+// Users & Logs
+// ═══════════════════════════════════════════
+function renderUsers(){
+  const now = new Date(); let html = '';
+  rawUsers.forEach(u=>{
+    let t = asDate(u.lastOnline, new Date(0));
+    let online = Math.floor((now-t)/60000)<10;
+    let name = u.username||u.email||'Unknown'; let init = (name[0] || '?').toUpperCase();
+    let roleCol = u.role==='admin' ? 'var(--danger)' : 'var(--info)';
+    let onBadge = online ? '<span class="badge-online">● Online</span>' : '<span class="badge-offline">Offline</span>';
+    let actionBtn = '';
+    if(u.id!==currentUser.uid){
+      let nr = u.role==='admin' ? 'staff' : 'admin';
+      let bt = u.role==='admin' ? 'Staff ပြောင်း' : 'Admin ပေး';
+      let bc = u.role==='admin' ? 'btn-role-staff' : 'btn-role-admin';
+      actionBtn = `<button onclick="changeUserRole('${u.id}','${nr}','${name}')" class="btn-role ${bc}">${bt}</button>`;
+    }else{ actionBtn=`<span class="ur-self">သင်၏အကောင့်</span>`; }
+    html+=`<div class="user-row"><div class="ur-info"><div class="ur-avatar">${init}</div><div><div class="ur-name">${name} <span style="font-size:10px;font-weight:800;color:${roleCol};text-transform:uppercase">(${u.role})</span></div><div class="ur-meta">${t.toLocaleDateString()} ${t.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div></div></div><div class="ur-right">${onBadge}${actionBtn}</div></div>`;
+  });
+  document.getElementById("usersList").innerHTML=html||'<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-muted)">အကောင့်မရှိသေးပါ</div>';
+}
+
+function changeUserRole(uid,newRole,name){
+  Swal.fire({title:'သေချာပါသလား?',text:`${name} ကို ${newRole.toUpperCase()} သို့ ပြောင်းမည်`,icon:'warning',showCancelButton:true,confirmButtonColor:'var(--primary)'})
+  .then(r => {
+    if(r.isConfirmed){
+      try{ 
+          let promise = db.collection("users").doc(uid).update({role:newRole}); 
+          if(navigator.onLine) {
+              promise.then(() => Swal.fire({icon:'success',title:'ပြောင်းပြီး',timer:1000,showConfirmButton:false}));
+          } else {
+              Swal.fire({icon:'info',title:'ဖုန်းထဲတွင် ပြောင်းပြီးပါပြီ',text:'Online ရမှ အကျိုးသက်ရောက်မည်။',timer:2500,showConfirmButton:false});
+          }
+      } catch(e){ Swal.fire('Error',e.message,'error'); }
+    }
+  });
+}
+
+function renderSelectedDateData(){
+  const area = document.getElementById("displayArea"); let fl = [];
+  rawLogs.forEach(l=>{
+    let t = asDate(l.timestamp, new Date());
+    if(t && t >= globalStartDate && t <= globalEndDate) fl.push({...l,pt:t});
+  });
+  if(!fl.length){ area.innerHTML='<div style="padding:40px 20px;text-align:center;font-size:12px;color:var(--text-muted)">⚠️ မှတ်တမ်းမရှိပါ</div>'; return; }
+  fl.sort((a,b)=>b.pt-a.pt);
+  area.innerHTML=fl.map(l=>{
+    let ts = getLocalYMD(l.pt) + " " + l.pt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    let who = l.user||l.username||l.email||'System';
+    return `<div class="log-item"><div class="log-top"><span class="log-who">${who}</span><span class="log-time">${ts}</span></div><div class="log-action">${l.action}</div>${parseDiff(l.details||"")}</div>`;
+  }).join('');
+}
+
+function parseDiff(s){
+  const m = s.match(/\[(.*?)\]/);
+  if(!m) return `<div class="log-detail">${s}</div>`;
+  let clean = s.replace(m[0],"").trim();
+  let changes = m[1].split(',').map(c=>{
+    let p = c.trim().split('->');
+    if(p.length===2){let kv=p[0].split(':');let k=kv.length>1?kv[0].trim()+":":"";let ov=kv.length>1?kv[1].trim():p[0].trim();return`• ${k} <span class="val-old">${ov}</span>▶<span class="val-new">${p[1].trim()}</span>`;}
+    return`• ${c.trim()}`;
+  }).join('<br>');
+  return`<div class="log-detail">${clean}</div><div class="log-diff">${changes}</div>`;
+}
+
+// ═══════════════════════════════════════════
+// Personal Finance Logic (Daily Logs)
+// ═══════════════════════════════════════════
+function renderPersonalFinance() {
+    let monthStr = document.getElementById('adminFinMonth').value;
+    if(!monthStr) return;
+    
+    adminPersonalDays = {};
+    rawTransactions.forEach(d => {
+        if (d.group === 'Personal') {
+            let dObj = asDate(d.date); if (!dObj) return;
+            let mStr = dObj.getFullYear() + "-" + String(dObj.getMonth()+1).padStart(2,'0');
+            if (mStr === monthStr) {
+                let dStr = getLocalYMD(dObj);
+                if (!adminPersonalDays[dStr]) adminPersonalDays[dStr] = { inc: 0, exp: 0, logs: [] };
+                if (isIncome(d.type)) adminPersonalDays[dStr].inc += money(d.amount); 
+                else if (isExpense(d.type)) adminPersonalDays[dStr].exp += money(d.amount); 
+                adminPersonalDays[dStr].logs.push(d);
+            }
+        }
+    });
+
+    let sortedDates = Object.keys(adminPersonalDays).sort((a,b) => new Date(b) - new Date(a)); 
+    let html = '';
+    sortedDates.forEach(date => {
+        let net = adminPersonalDays[date].inc - adminPersonalDays[date].exp; 
+        let nCol = net >= 0 ? 'var(--success)' : 'var(--danger)';
+        html += `<div class="card" onclick="openAdminFullscreenDay('${date}')" style="padding:14px 16px; border-left: 4px solid ${nCol}; cursor:pointer;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <strong style="font-size:14px; color:var(--text-main);">📅 ${date}</strong> 
+                        <span style="color:${nCol}; font-weight:800; font-size:14px;">${net>=0?'+':''}${net.toLocaleString()} Ks</span>
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); margin:0;">
+                        <span style="color:var(--success)">ဝင်: +${adminPersonalDays[date].inc.toLocaleString()}</span> &nbsp; 
+                        <span style="color:var(--danger)">ထွက်: -${adminPersonalDays[date].exp.toLocaleString()}</span>
+                    </div>
+                 </div>`;
+    });
+    document.getElementById('adminPersonalList').innerHTML = html || '<div style="text-align:center; padding:30px; font-size:13px; color:var(--text-muted);">မှတ်တမ်းမရှိပါ</div>';
+    
+    const currentActiveDay = document.getElementById('fsAdminDayTitle').getAttribute('data-active-day'); 
+    if (currentActiveDay && document.getElementById('fsAdminDayView').classList.contains('active')) renderAdminDayDetails(currentActiveDay);
+}
+
+function openAdminFullscreenDay(date) { 
+    document.getElementById('fsAdminDayTitle').innerText = `📅 ${date} (ကိုယ်ပိုင်)`; 
+    document.getElementById('fsAdminDayTitle').setAttribute('data-active-day', date); 
+    document.getElementById('btnAdminFsAddInc').onclick = () => openFinModalAdmin('ဝင်ငွေ', 'Personal', date); 
+    document.getElementById('btnAdminFsAddExp').onclick = () => openFinModalAdmin('ထွက်ငွေ', 'Personal', date); 
+    renderAdminDayDetails(date); 
+    document.getElementById('fsAdminDayView').classList.add('active'); 
+}
+
+function closeAdminFullscreenDay() { 
+    document.getElementById('fsAdminDayView').classList.remove('active'); 
+    document.getElementById('fsAdminDayTitle').removeAttribute('data-active-day'); 
+}
+
+function renderAdminDayDetails(date) {
+    let dayObj = adminPersonalDays[date] || { logs: [] }; 
+    let html = ''; 
+    if (dayObj.logs.length === 0) html = '<div style="text-align:center; padding:40px; color:var(--text-muted); font-size:13px;">ယနေ့အတွက် စာရင်းမရှိပါ။</div>';
+    
+    let sortedLogs = dayObj.logs.sort((a,b) => {
+        let da = a.exactDate ? (a.exactDate.toDate ? a.exactDate.toDate() : new Date(a.exactDate)) : new Date(0);
+        let db = b.exactDate ? (b.exactDate.toDate ? b.exactDate.toDate() : new Date(b.exactDate)) : new Date(0);
+        return db - da;
+    });
+
+    sortedLogs.forEach(l => {
+        let col = isIncome(l.type) ? 'var(--success)' : 'var(--danger)';
+        let subText = l.subGroup ? ` ▸ ${l.subGroup}` : '';
+        html += `<div style="background:var(--bg-surface); border:1px solid var(--border-light); border-radius:var(--radius-md); padding:16px; margin-bottom:12px; box-shadow:var(--shadow-sm);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <div>
+                            <span style="background:var(--bg-input); color:var(--text-muted); padding:3px 8px; border-radius:6px; font-size:9px; font-weight:800; display:inline-block; margin-bottom:6px;">${l.group}${subText}</span>
+                            <div style="font-size:14px; font-weight:700; color:var(--text-main);">${l.name}</div>
+                        </div>
+                        <div style="color:${col}; font-weight:900; font-size:15px;">${isIncome(l.type)?'+':'-'}${Number(l.amount).toLocaleString()}</div>
+                    </div>
+                    
+                    <div style="display:flex; gap:10px; margin-top:14px; justify-content:flex-end; border-top:1px dashed var(--border-light); padding-top:12px;">
+                        <button style="background:var(--bg-input); color:var(--text-secondary); border:none; padding:8px 16px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;" onclick="editFinInlineAdmin('${l.id}')">ပြင်မည်</button>
+                        <button style="background:var(--danger-light); color:var(--danger); border:none; padding:8px 16px; border-radius:8px; font-size:11px; font-weight:800; cursor:pointer;" onclick="deleteFinAdmin('${l.id}')">ဖျက်မည်</button>
+                    </div>
+                </div>`;
+    });
+    document.getElementById('fsAdminDayDetailsList').innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// FINANCE MODAL FORM LOGIC
+// ═══════════════════════════════════════════
+function updateSubCatAdmin() {
+    const mainCat = document.getElementById('finCat').value;
+    const subCatSelect = document.getElementById('finSubCat');
+    subCatSelect.innerHTML = '';
+    const subs = mySubCategories[mainCat] || ["အထွေထွေ"];
+    subs.forEach(sub => {
+        let opt = document.createElement('option');
+        opt.value = sub;
+        opt.innerText = sub;
+        subCatSelect.appendChild(opt);
+    });
+}
+
+function setFinTypeAdmin(type){
+  document.getElementById('finType').value=type;
+  const bi=document.getElementById('btnInc'), be=document.getElementById('btnExp');
+  if(type==='ဝင်ငွေ'){bi.className='f-toggle-btn on-lime';be.className='f-toggle-btn';}
+  else{be.className='f-toggle-btn on-rose';bi.className='f-toggle-btn';}
+}
+
+function openFinModalAdmin(type, group, dateStr){
+  setFinTypeAdmin(type);
+  document.getElementById('finId').value = '';
+  document.getElementById('finCat').value = group || 'Personal';
+  updateSubCatAdmin();
+  document.getElementById('finName').value = '';
+  document.getElementById('finAmt').value = '';
+  document.getElementById('finDate').value = dateStr || getLocalYMD();
+  
+  document.getElementById('finModalAdmin').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('finModalContent').classList.add('open'),10);
+}
+
+function closeFinModalAdmin(){
+  document.getElementById('finModalContent').classList.remove('open');
+  setTimeout(()=>document.getElementById('finModalAdmin').classList.add('hidden'),320);
+}
+
+function editFinInlineAdmin(id) {
+    let d = rawTransactions.find(x => x.id === id); if(!d) return;
+    document.getElementById('finId').value = d.id;
+    setFinTypeAdmin(d.type); document.getElementById('finCat').value = d.group; 
+    updateSubCatAdmin();
+    if(d.subGroup) document.getElementById('finSubCat').value = d.subGroup;
+    document.getElementById('finName').value = d.name; document.getElementById('finAmt').value = d.amount;
+    document.getElementById('finDate').value = getLocalYMD(asDate(d.date) || new Date());
+    document.getElementById('finModalAdmin').classList.remove('hidden'); setTimeout(()=>document.getElementById('finModalContent').classList.add('open'),10);
+}
+
+function saveFinanceAdmin(){
+  const id=document.getElementById('finId').value; const type=document.getElementById('finType').value; const group=document.getElementById('finCat').value;
+  const subGroup=document.getElementById('finSubCat').value;
+  const name=document.getElementById('finName').value.trim(); const amt=Number(document.getElementById('finAmt').value); const dv=document.getElementById('finDate').value;
+  if(!name||amt<=0||!dv||Number.isNaN(new Date(dv + 'T12:00:00').getTime()))return Swal.fire('အမှား','အချက်အလက် ပြည့်စုံစွာဖြည့်ပါ','warning');
+  
+  if(navigator.onLine) Swal.fire({title:'သိမ်းဆည်းနေပါသည်...',allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+  
+  try{
+    let promise;
+    if (id) {
+        promise = db.collection("transactions").doc(id).update({ type, group, subGroup, name, amount: amt, date: new Date(dv + "T12:00:00"), updatedAt: firebase.firestore.FieldValue.serverTimestamp(), exactDate: new Date(), history: firebase.firestore.FieldValue.arrayUnion(auditEntry('Admin မှ စာရင်းပြင်ဆင်သည်')) });
+    } else {
+        promise = db.collection("transactions").add({ type, group, subGroup, name, amount: amt, date: new Date(dv + "T12:00:00"), exactDate: new Date(), history: [auditEntry('Admin မှ စာရင်းအသစ်သွင်းသည်')] });
+    }
+    closeFinModalAdmin(); 
+    
+    if(!navigator.onLine) {
+        Swal.fire({icon:'info', title:'ဖုန်းထဲတွင် သိမ်းပြီးပါပြီ', text:'အင်တာနက် ပြန်ရချိန်တွင် အလိုအလျောက် Sync လုပ်ပါမည်။', timer:2500, showConfirmButton:false});
+    } else {
+        promise.then(() => { Swal.fire({icon:'success',title:'အောင်မြင်ပါသည်',timer:1000,showConfirmButton:false}); }).catch(e => { Swal.fire('Error',e.message,'error'); });
+    }
+  }catch(e){Swal.fire('Error',e.message,'error');}
+}
+
+async function deleteFinAdmin(id) {
+    if(await Swal.fire({title:'ဖျက်မှာလား?', text:'ငွေစာရင်းကို အပြီးဖျက်ပါမည်။', icon:'warning', showCancelButton:true, confirmButtonColor:'var(--danger)'}).then(r=>!r.isConfirmed)) return;
+    try { 
+        db.collection("transactions").doc(id).delete(); 
+        if(!navigator.onLine) {
+            Swal.fire({icon:'info', title:'ဖုန်းထဲမှ ဖျက်ပြီးပါပြီ', text:'အင်တာနက် ပြန်ရချိန်တွင် အပြီးတိုင် ဖျက်ပါမည်။', timer:2500, showConfirmButton:false});
+        } else {
+            Swal.fire({icon:'success', title:'ဖျက်ပြီးပါပြီ', timer:1000, showConfirmButton:false});
+        }
+    } catch(e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// 🛡️ CONTROL & ARCHIVE LOGIC 
+// ═══════════════════════════════════════════
+function verifyControlPin() {
+    const correctPin = 'admin'; 
+    if(document.getElementById('controlPinInput').value === correctPin) {
+        document.getElementById('pinContainer').classList.add('hidden');
+        document.getElementById('controlContent').classList.remove('hidden');
+        document.getElementById('controlPinInput').value = '';
+    } else {
+        Swal.fire('Error', 'PIN မှားယွင်းနေပါသည်', 'error');
+    }
+}
+
+let ctrlTargetDocs = [];
+
+function calculateControlData() {
+    let start = new Date(document.getElementById('ctrlStart').value + "T00:00:00");
+    let end = new Date(document.getElementById('ctrlEnd').value + "T23:59:59.999");
+    
+    if (!document.getElementById('ctrlStart').value || !document.getElementById('ctrlEnd').value || document.getElementById('ctrlStart').value > document.getElementById('ctrlEnd').value) return Swal.fire('ရက်စွဲမှားနေပါသည်', 'ရက်စွဲအပိုင်းအခြားကို စစ်ဆေးပါ', 'warning');
+    let incTx = document.getElementById('chkTx').checked; let incRep = document.getElementById('chkRep').checked;
+    let incProd = document.getElementById('chkProd').checked; let incLog = document.getElementById('chkLog').checked;
+
+    ctrlTargetDocs = [];
+
+    if(incTx) {
+        rawTransactions.forEach(d => {
+            let td = asDate(d.date);
+            if(td && td >= start && td <= end) ctrlTargetDocs.push({ref: db.collection("transactions").doc(d.id), data: d, type: 'Transaction'});
+        });
+    }
+    if(incRep) {
+        rawRepairs.forEach(d => {
+            let td = asDate(d.timestamp || d.receivedAt || d.createdAt) || asDate(d.date);
+            if(td && td >= start && td <= end) ctrlTargetDocs.push({ref: db.collection("repairs").doc(d.id), data: d, type: 'Repair'});
+        });
+    }
+    if(incProd) {
+        rawProducts.forEach(d => {
+            let td = asDate(d.createdAt || d.updatedAt);
+            if(td && td >= start && td <= end) ctrlTargetDocs.push({ref: db.collection("products").doc(d.id), data: d, type: 'Product'});
+        });
+    }
+    if(incLog) {
+        rawLogs.forEach(d => {
+            let td = asDate(d.timestamp);
+            if(td && td >= start && td <= end) ctrlTargetDocs.push({ref: db.collection("activity_logs").doc(d.id), data: d, type: 'Log'});
+        });
+    }
+
+    document.getElementById('ctrlCount').innerText = ctrlTargetDocs.length;
+    document.getElementById('ctrlResultBox').classList.remove('hidden');
+}
+
+// ═══════════════════════════════════════════
+// CSV DOWNLOAD BRIDGE
+// ═══════════════════════════════════════════
+function downloadCSVFile(filename, csvData) {
+    if (typeof AndroidApp !== 'undefined' && typeof AndroidApp.saveCSV === 'function') {
+        AndroidApp.saveCSV(filename, csvData);
+    } else {
+        let a = document.createElement("a");
+        a.href = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(csvData);
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+}
+
+function exportControlCSV() {
+    if(ctrlTargetDocs.length === 0) return Swal.fire('အသိပေးချက်', 'ထုတ်ယူရန် စာရင်းမရှိပါ', 'info');
+
+    let txDocs = ctrlTargetDocs.filter(t => t.type === 'Transaction');
+    let repDocs = ctrlTargetDocs.filter(t => t.type === 'Repair');
+    let prodDocs = ctrlTargetDocs.filter(t => t.type === 'Product');
+    let logDocs = ctrlTargetDocs.filter(t => t.type === 'Log');
+
+    let delay = 0; 
+
+    if(txDocs.length > 0) {
+        setTimeout(() => {
+            let csv = "Date,Type,Category,SubCategory,Description,Amount_Ks\n";
+            txDocs.forEach(t => {
+                let d = t.data; let dateStr = getLocalYMD(asDate(d.date));
+                csv += `${dateStr},${d.type},${d.group},${d.subGroup||''},"${(d.name||'').replace(/"/g,'""')}",${d.amount}\n`;
+            });
+            downloadCSVFile(`Finance_Detail_${getLocalYMD()}.csv`, csv);
+        }, delay);
+        delay += 600;
+    }
+
+    if(repDocs.length > 0) {
+        setTimeout(() => {
+            let csv = "Date,VR_No,Customer_Name,Phone,Location,Model,Issue,Status,Cost_Ks,Income_Ks,Net_Profit_Ks,Remark\n";
+            repDocs.forEach(t => {
+                let d = t.data; let dateStr = d.date || getLocalYMD(asDate(d.timestamp));
+                let profit = (Number(d.income)||0) - (Number(d.cost)||0);
+                csv += `${dateStr},VR-${d.vrno},"${(d.name||'').replace(/"/g,'""')}","${d.phone||''}","${d.location||''}","${d.model||''}","${d.issue||''}","${d.status||''}",${d.cost||0},${d.income||0},${profit},"${(d.remark||'').replace(/"/g,'""')}"\n`;
+            });
+            downloadCSVFile(`Repairs_Detail_${getLocalYMD()}.csv`, csv);
+        }, delay);
+        delay += 600;
+    }
+
+    if(prodDocs.length > 0) {
+        setTimeout(() => {
+            let csv = "Date,Item_Name,Category,Status,Quantity,Cost_Price_Ks,Selling_Price_Ks,Total_Cost_Value_Ks\n";
+            prodDocs.forEach(t => {
+                let d = t.data; let dateStr = getLocalYMD(asDate(d.createdAt || d.updatedAt));
+                let tValue = (Number(d.amount)||0) * (Number(d.costPrice)||0);
+                csv += `${dateStr},"${(d.name||'').replace(/"/g,'""')}","${d.category||''}","${d.status||''}",${d.amount||0},${d.costPrice||0},${d.price||0},${tValue}\n`;
+            });
+            downloadCSVFile(`Products_Detail_${getLocalYMD()}.csv`, csv);
+        }, delay);
+        delay += 600;
+    }
+
+    if(logDocs.length > 0) {
+        setTimeout(() => {
+            let csv = "Date,Time,User,Action,Details\n";
+            logDocs.forEach(t => {
+                let d = t.data; let dt = asDate(d.timestamp, new Date());
+                let dateStr = getLocalYMD(dt); let timeStr = dt.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+                csv += `${dateStr},${timeStr},"${d.user||''}","${(d.action||'').replace(/"/g,'""')}","${(d.details||'').replace(/"/g,'""').replace(/\n/g,' ')}"\n`;
+            });
+            downloadCSVFile(`Logs_Detail_${getLocalYMD()}.csv`, csv);
+        }, delay);
+    }
+}
+
+async function deleteControlData() {
+    if(ctrlTargetDocs.length === 0) return Swal.fire('အသိပေးချက်', 'ဖျက်ရန် စာရင်းမရှိပါ', 'info');
+    let res = await Swal.fire({title:'သေချာပါသလား?', text:`ရွေးချယ်ထားသော စာရင်းပေါင်း ${ctrlTargetDocs.length} ခုကို အပြီးတိုင်ဖျက်မည်။ (ပြန်လည်ရယူ၍ မရပါ)`, icon:'warning', showCancelButton:true, confirmButtonColor:'#ef4444'});
+    if(!res.isConfirmed) return;
+
+    if(navigator.onLine) Swal.fire({title:'ဖျက်နေပါသည်...', didOpen:()=>Swal.showLoading()});
+    try {
+        let batches = []; let currentBatch = db.batch(); let count = 0;
+        ctrlTargetDocs.forEach(t => {
+            currentBatch.delete(t.ref); count++;
+            if(count === 490) { batches.push(currentBatch.commit()); currentBatch = db.batch(); count = 0; }
+        });
+        if(count > 0) batches.push(currentBatch.commit());
+        
+        document.getElementById('ctrlResultBox').classList.add('hidden');
+        
+        if(!navigator.onLine) {
+            Swal.fire('အသိပေးချက်', 'ဖုန်းထဲမှ ရှင်းလင်းပြီးပါပြီ။ အင်တာနက် ပြန်ရချိန်တွင် အပြီးတိုင်ဖျက်ပါမည်။', 'info');
+        } else {
+            Promise.all(batches).then(() => Swal.fire('အောင်မြင်ပါသည်', 'စာရင်းများ ရှင်းလင်းပြီးပါပြီ', 'success')).catch(e => Swal.fire('Error', e.message, 'error'));
+        }
+    } catch(e) { Swal.fire('Error', e.message, 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// Charts Function
+// ═══════════════════════════════════════════
+function drawFinChart(inc,exp){
+  const ctx=document.getElementById('financeChart').getContext('2d');
+  if(finChartInst)finChartInst.destroy();
+  finChartInst=new Chart(ctx,{type:'doughnut',data:{labels:['ဝင်ငွေ','ထွက်ငွေ'],datasets:[{data:[inc,exp],backgroundColor:['#10b981','#ef4444'],borderWidth:0,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'72%',plugins:{legend:{display:false}}}});
+}
+function drawRepChart(done,fail,wait){
+  const ctx=document.getElementById('repairChart').getContext('2d');
+  if(repChartInst)repChartInst.destroy();
+  repChartInst=new Chart(ctx,{type:'pie',data:{labels:['အောင်မြင်','ပြင်မရ','စစ်ဆေးဆဲ'],datasets:[{data:[done,fail,wait],backgroundColor:['#10b981','#ef4444','#f59e0b'],borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+}
+
+// ═══════════════════════════════════════════
+// BACK BUTTON LOGIC
+// ═══════════════════════════════════════════
+function handleAndroidBack() {
+    const catModal = document.getElementById('catModal');
+    if (!catModal.classList.contains('hidden')) {
+        closeCatSettingsModal();
+        return AndroidApp.backHandled(true);
+    }
+
+    const finModal = document.getElementById('finModalAdmin');
+    if (!finModal.classList.contains('hidden')) {
+        closeFinModalAdmin();
+        return AndroidApp.backHandled(true);
+    }
+    
+    const fsView = document.getElementById('fsAdminDayView');
+    if (fsView.classList.contains('active')) {
+        closeAdminFullscreenDay();
+        return AndroidApp.backHandled(true);
+    }
+    
+    const loginView = document.getElementById('login-view');
+    if (!loginView.classList.contains('hidden')) {
+        return AndroidApp.backHandled(false); 
+    }
+    
+    const activeTab = document.querySelector('.bn-item.active');
+    if (activeTab && activeTab.id !== 'bn-dashboard') {
+        switchPage('dashboard');
+        return AndroidApp.backHandled(true);
+    }
+    
+    return AndroidApp.backHandled(false);
+}
+</script>
+</body>
+</html>

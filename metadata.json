@@ -1,0 +1,6 @@
+{
+  "name": "Mobile ANSWER Pro - Phone Service & POS",
+  "description": "Mobile phone repair tracking, stock inventory management, POS billing, credit/debt ledger, and daily financial settlement system for Mobile ANSWER.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
