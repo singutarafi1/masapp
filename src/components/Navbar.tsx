@@ -11,6 +11,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { RegisterModal } from './auth/RegisterModal';
 import { AdminViewType } from './NavigationDrawer';
 
@@ -34,6 +35,7 @@ export function Navbar({
   drawerCash = 0
 }: NavbarProps) {
   const { profile, isAdmin, logout } = useAuth();
+  const { shopTitle, t, themeConfig } = useSettings();
   const [showRegModal, setShowRegModal] = useState(false);
 
   return (
@@ -47,7 +49,7 @@ export function Navbar({
             <button
               onClick={onOpenDrawer}
               className="p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-95"
-              title="မီနူး အံဆွဲ ဖွင့်မည်"
+              title={t('မီနူး အံဆွဲ ဖွင့်မည်', 'Open Drawer Menu')}
               aria-label="Open Menu Drawer"
             >
               <Menu className="w-5 h-5" />
@@ -57,15 +59,17 @@ export function Navbar({
               onClick={onResetToCounter}
               className="flex items-center gap-1.5 sm:gap-2 text-left group"
             >
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white font-black text-xs sm:text-base shadow-sm shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                A
+              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-gradient-to-tr ${themeConfig.gradient} flex items-center justify-center text-white font-black text-xs sm:text-base shadow-sm group-hover:scale-105 transition-transform`}>
+                {shopTitle.charAt(0) || 'A'}
               </div>
               <div className="flex flex-col">
                 <span className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white leading-none">
-                  Mobile <span className="text-indigo-600 dark:text-indigo-400">ANSWER</span>
+                  {shopTitle}
                 </span>
                 <span className="text-[8px] sm:text-[9px] font-semibold text-slate-400 tracking-wider uppercase mt-0.5">
-                  {activeAdminView ? `Admin / ${activeAdminView.toUpperCase()}` : 'POS & Service'}
+                  {activeAdminView 
+                    ? (activeAdminView === 'settings' ? t('စနစ် အပြင်အဆင်', 'SETTINGS') : `Admin / ${activeAdminView.toUpperCase()}`) 
+                    : t('ကောင်တာ အရောင်း & စက်ပြင်', 'POS & Service')}
                 </span>
               </div>
             </button>

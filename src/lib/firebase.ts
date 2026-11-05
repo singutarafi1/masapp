@@ -5,6 +5,7 @@ import {
   enableIndexedDbPersistence, 
   collection, 
   doc, 
+  setDoc,
   addDoc, 
   updateDoc, 
   deleteDoc, 
@@ -71,6 +72,7 @@ export async function logActivity(user: string, action: string, details: string)
 export {
   collection,
   doc,
+  setDoc,
   addDoc,
   updateDoc,
   deleteDoc,

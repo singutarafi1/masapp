@@ -374,7 +374,7 @@ export function FinanceTab() {
   };
 
   return (
-    <div className="pb-28">
+    <div className="pb-36">
       {/* Top Month Selector & Aggregate KPI Cards */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
         <div className="max-w-5xl mx-auto space-y-3.5">

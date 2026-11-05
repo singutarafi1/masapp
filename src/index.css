@@ -12,33 +12,35 @@
 
   html {
     width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden !important;
-    position: relative;
+    max-width: 100%;
+    overflow-x: clip;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
-    touch-action: pan-y pinch-zoom;
+  }
+
+  /* Dynamic font scaling */
+  html.font-sm {
+    font-size: 13.5px;
+  }
+  html.font-base {
+    font-size: 15px;
+  }
+  html.font-lg {
+    font-size: 16.5px;
   }
 
   body {
     width: 100%;
-    max-width: 100vw;
+    max-width: 100%;
     min-height: 100vh;
-    min-height: 100dvh;
-    overflow-x: hidden !important;
-    position: relative;
-    overscroll-behavior-x: none;
-    overscroll-behavior-y: contain;
+    overflow-x: clip;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-y pinch-zoom;
   }
 
   #root {
     width: 100%;
-    max-width: 100vw;
-    overflow-x: hidden !important;
+    max-width: 100%;
     min-height: 100vh;
-    min-height: 100dvh;
     position: relative;
     display: flex;
     flex-direction: column;

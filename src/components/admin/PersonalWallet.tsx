@@ -117,7 +117,7 @@ export function PersonalWallet() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in pb-20 px-3 sm:px-6 max-w-5xl mx-auto pt-4">
+    <div className="space-y-6 animate-in fade-in pb-36 px-3 sm:px-6 max-w-5xl mx-auto pt-4">
       
       {/* Wallet Banner Card */}
       <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl shadow-indigo-950/20 border border-slate-800 relative overflow-hidden">
