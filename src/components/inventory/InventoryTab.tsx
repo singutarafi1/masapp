@@ -280,28 +280,28 @@ export function InventoryTab() {
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
         <div className="max-w-5xl mx-auto space-y-3.5">
           {/* Quick Metrics */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60">
-              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
+          <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+            <div className="p-2 sm:p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">
                 ပစ္စည်းအရေအတွက်
               </span>
-              <span className="text-lg font-black text-slate-900 dark:text-white tabular-nums">
+              <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tabular-nums block truncate">
                 {stats.totalItemsCount.toLocaleString()}
               </span>
             </div>
-            <div className="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60">
-              <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 block">
+            <div className="p-2 sm:p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 block truncate">
                 စတော့အရင်းတန်ဖိုး
               </span>
-              <span className="text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums truncate block">
+              <span className="text-base sm:text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums truncate block">
                 {formatCurrency(stats.totalCostValue)}
               </span>
             </div>
-            <div className="p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60">
-              <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 block">
+            <div className="p-2 sm:p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-rose-600 dark:text-rose-400 block truncate">
                 လက်ကျန်ပြတ်
               </span>
-              <span className="text-lg font-black text-rose-600 dark:text-rose-400 tabular-nums">
+              <span className="text-base sm:text-lg font-black text-rose-600 dark:text-rose-400 tabular-nums block truncate">
                 {stats.outOfStockCount}
               </span>
             </div>
@@ -398,7 +398,7 @@ export function InventoryTab() {
           </div>
 
           {/* Interactive Category Filter Pills */}
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex gap-1.5 scroll-touch-x no-scrollbar pb-1">
             {['အားလုံး', 'အထွေထွေ', 'Hardwareအပိုပစ္စည်', 'accessories', 'ရောင်းပြီး'].map(
               (cat) => {
                 const isActive = activeCategory === cat;

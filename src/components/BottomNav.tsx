@@ -40,8 +40,8 @@ export function BottomNav({
       </button>
 
       {/* Fixed Bottom Navigation Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe transition-colors">
-        <div className="max-w-md mx-auto grid grid-cols-4 h-16 items-center px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 w-full max-w-full overflow-hidden bg-white/98 dark:bg-slate-900/98 sm:backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe transition-colors">
+        <div className="max-w-md mx-auto grid grid-cols-4 h-16 items-center px-1 sm:px-2 w-full">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;

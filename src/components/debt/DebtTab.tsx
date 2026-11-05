@@ -371,7 +371,7 @@ export function DebtTab() {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex gap-1.5 scroll-touch-x no-scrollbar pb-1">
             {['ကျန်ရှိ', 'ရှင်းပြီး', 'အားလုံး', 'Void'].map((st) => {
               const isActive = activeFilter === st;
               return (

@@ -389,7 +389,7 @@ export function RepairTab() {
           </div>
 
           {/* Filter Pills */}
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex gap-1.5 scroll-touch-x no-scrollbar pb-1">
             {['အားလုံး', 'စစ်ဆေးဆဲ', 'ပြင်ပြီး', 'ရွေးသွားပြီ', 'Void'].map((st) => {
               const isActive = activeFilter === st;
               return (
@@ -768,10 +768,10 @@ export function RepairTab() {
       )}
 
       {/* HIDDEN VOUCHER TEMPLATE FOR HTML2CANVAS */}
-      <div className="fixed -left-[9999px] top-0 pointer-events-none">
+      <div className="fixed left-0 top-0 w-0 h-0 overflow-hidden opacity-0 pointer-events-none -z-50">
         <div
           ref={voucherCaptureRef}
-          className="w-[380px] bg-white p-8 text-slate-900 border-t-8 border-indigo-600"
+          className="w-[380px] min-w-[380px] bg-white p-8 text-slate-900 border-t-8 border-indigo-600"
           style={{ fontFamily: "'Noto Sans Myanmar', sans-serif" }}
         >
           <div className="text-center mb-6">

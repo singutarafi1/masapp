@@ -160,7 +160,7 @@ export function ExecutiveDashboard() {
         </div>
 
         {/* Time Filter Pill Dropdown */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+        <div className="flex items-center gap-1.5 self-stretch sm:self-auto scroll-touch-x no-scrollbar max-w-full bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
           <button
             onClick={() => setTimeFilter('this_month')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${

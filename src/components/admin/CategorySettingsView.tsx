@@ -113,7 +113,7 @@ export function CategorySettingsView() {
       </div>
 
       {/* Group Selector Dropdown / Pill Row */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center gap-1.5 scroll-touch-x pb-2 scrollbar-none">
         {(Object.keys(CATEGORY_LABELS) as CategoryKey[]).map((key) => (
           <button
             key={key}

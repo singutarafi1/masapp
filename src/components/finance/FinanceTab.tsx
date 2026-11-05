@@ -408,30 +408,30 @@ export function FinanceTab() {
           </div>
 
           {/* 3 Main KPIs */}
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60">
-              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 block">
+          <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+            <div className="p-2 sm:p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-400 block truncate">
                 ဝင်ငွေ စုစုပေါင်း
               </span>
-              <span className="text-base sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums block truncate">
+              <span className="text-sm sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums block truncate">
                 +{formatCurrency(monthStats.totalInc)}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60">
-              <span className="text-[11px] font-bold text-rose-700 dark:text-rose-400 block">
+            <div className="p-2 sm:p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-400 block truncate">
                 ထွက်ငွေ စုစုပေါင်း
               </span>
-              <span className="text-base sm:text-lg font-black text-rose-700 dark:text-rose-300 tabular-nums block truncate">
+              <span className="text-sm sm:text-lg font-black text-rose-700 dark:text-rose-300 tabular-nums block truncate">
                 -{formatCurrency(monthStats.totalExp)}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60">
-              <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 block">
+            <div className="p-2 sm:p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
+              <span className="text-[10px] sm:text-[11px] font-bold text-indigo-700 dark:text-indigo-400 block truncate">
                 အသားတင် အမြတ်
               </span>
-              <span className={`text-base sm:text-lg font-black tabular-nums block truncate ${
+              <span className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
                 monthStats.netProfit >= 0
                   ? 'text-indigo-700 dark:text-indigo-300'
                   : 'text-rose-600 dark:text-rose-400'

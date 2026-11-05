@@ -85,7 +85,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500/20 selection:text-indigo-700">
+    <div className="min-h-screen min-h-[100dvh] w-full max-w-full overflow-x-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors selection:bg-indigo-500/20 selection:text-indigo-700">
       <Navbar
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -96,7 +96,7 @@ function AppContent() {
         drawerCash={drawerCash}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto">
+      <main className="flex-1 max-w-7xl w-full mx-auto overflow-x-hidden">
         {/* If an Admin Executive View is active and user is admin */}
         {isAdmin && activeAdminView === 'executive' && <ExecutiveDashboard />}
         {isAdmin && activeAdminView === 'wallet' && <PersonalWallet />}
