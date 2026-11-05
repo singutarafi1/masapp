@@ -8,6 +8,7 @@ import {
   Scale,
   Briefcase,
   ChevronRight,
+  ChevronDown,
   ArrowLeft,
   Edit2,
   Trash2,
@@ -16,6 +17,8 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
+  History,
+  Clock,
 } from 'lucide-react';
 import { db, collection, query, where, onSnapshot } from '../../lib/firebase';
 import { TransactionItem, DayFinanceSummary, TransactionType, TransactionGroup } from '../../types';
@@ -44,6 +47,7 @@ export function FinanceTab() {
 
   // Active Day Drawer/View
   const [activeDayDate, setActiveDayDate] = useState<string | null>(null);
+  const [expandedGroupKeys, setExpandedGroupKeys] = useState<Record<string, boolean>>({});
 
   // Modals
   const [showAddTxModal, setShowAddTxModal] = useState(false);
@@ -407,56 +411,6 @@ export function FinanceTab() {
               </button>
             </div>
           </div>
-
-          {/* 3 Main KPIs: Staff sees TODAY's daily shift total; Admin sees MONTH's grand totals */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 min-w-0 overflow-hidden">
-              <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 dark:text-emerald-400 block truncate">
-                {isAdmin ? 'လချုပ် ဝင်ငွေ' : 'ယနေ့ ဝင်ငွေ'}
-              </span>
-              <span className="text-sm sm:text-lg font-black text-emerald-700 dark:text-emerald-300 tabular-nums block truncate">
-                +{formatCurrency(isAdmin ? monthStats.totalInc : todayDayObj.inc)}
-              </span>
-            </div>
-
-            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
-              <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 dark:text-rose-400 block truncate">
-                {isAdmin ? 'လချုပ် ထွက်ငွေ' : 'ယနေ့ ထွက်ငွေ'}
-              </span>
-              <span className="text-sm sm:text-lg font-black text-rose-700 dark:text-rose-300 tabular-nums block truncate">
-                -{formatCurrency(isAdmin ? monthStats.totalExp : todayDayObj.exp)}
-              </span>
-            </div>
-
-            <div className="p-2.5 sm:p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
-              <span className="text-[10px] sm:text-[11px] font-bold text-indigo-700 dark:text-indigo-400 block truncate">
-                {isAdmin ? 'လချုပ် အသားတင်' : 'ယနေ့ လက်ကျန်'}
-              </span>
-              {isAdmin ? (
-                <span
-                  className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
-                    monthStats.netProfit >= 0
-                      ? 'text-indigo-700 dark:text-indigo-300'
-                      : 'text-rose-600 dark:text-rose-400'
-                  }`}
-                >
-                  {monthStats.netProfit >= 0 ? '+' : ''}
-                  {formatCurrency(monthStats.netProfit)}
-                </span>
-              ) : (
-                <span
-                  className={`text-sm sm:text-lg font-black tabular-nums block truncate ${
-                    todayNet >= 0
-                      ? 'text-indigo-700 dark:text-indigo-300'
-                      : 'text-rose-600 dark:text-rose-400'
-                  }`}
-                >
-                  {todayNet >= 0 ? '+' : ''}
-                  {formatCurrency(todayNet)}
-                </span>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -553,88 +507,101 @@ export function FinanceTab() {
             <div className="w-12" />
           </div>
 
-          {/* Body Log Items */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5 pb-36 max-w-2xl mx-auto w-full">
+          {/* Body Log Items (Grouped Same-Day Sales & Accordion History) */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-36 max-w-2xl mx-auto w-full">
             {groupedDays[activeDayDate]?.logs.length === 0 ? (
               <div className="text-center py-12 text-slate-400 text-xs">စာရင်းမှတ်တမ်းမရှိပါ</div>
-            ) : (
-              groupedDays[activeDayDate]?.logs
-                .slice()
-                .sort((a, b) => {
-                  const ta = a.exactDate?.toDate?.() || new Date(a.date || 0);
-                  const tb = b.exactDate?.toDate?.() || new Date(b.date || 0);
-                  return tb.getTime() - ta.getTime();
-                })
-                .map((tx) => {
-                  const isInc = tx.type === 'ဝင်ငွေ';
-                  const isTransfer = tx.group === 'Handover' || tx.group === 'OwnerFund';
+            ) : (() => {
+              // Group same-day transactions by name, group and type
+              const dayLogs = groupedDays[activeDayDate]?.logs || [];
+              const groupMap: Record<string, { key: string; name: string; group: string; type: TransactionType; totalAmt: number; items: TransactionItem[] }> = {};
 
-                  return (
-                    <div
-                      key={tx.id}
-                      className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-sm space-y-2"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
-                              {tx.group}
+              dayLogs.forEach((tx) => {
+                const key = `${tx.name.trim()}__${tx.group}__${tx.type}`;
+                if (!groupMap[key]) {
+                  groupMap[key] = {
+                    key,
+                    name: tx.name.trim(),
+                    group: tx.group,
+                    type: tx.type,
+                    totalAmt: 0,
+                    items: [],
+                  };
+                }
+                groupMap[key].totalAmt += Number(tx.amount) || 0;
+                groupMap[key].items.push(tx);
+              });
+
+              const aggregatedGroups = Object.values(groupMap);
+
+              return aggregatedGroups.map((grp) => {
+                const isInc = grp.type === 'ဝင်ငွေ';
+                const count = grp.items.length;
+                const isExpanded = !!expandedGroupKeys[grp.key];
+
+                return (
+                  <div
+                    key={grp.key}
+                    className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all"
+                  >
+                    {/* Main Consolidated Card Header */}
+                    <div className="p-3.5 sm:p-4 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
+                            {grp.group}
+                          </span>
+                          {count > 1 && (
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                              × {count} ခု စုစုပေါင်း
                             </span>
-                            {tx.repairId && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-950 text-blue-600">
-                                🔧 Repair
-                              </span>
-                            )}
-                            {tx.productId && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-600">
-                                📦 Stock
-                              </span>
-                            )}
-                            {tx.debtId && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-600">
-                                📒 အကြွေး
-                              </span>
-                            )}
-                            {isTransfer && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-950 text-purple-600">
-                                🔁 Transfer
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="font-bold text-xs text-slate-900 dark:text-white mt-1.5 leading-snug">
-                            {tx.name}
-                          </div>
-
-                          <div className="text-[10px] text-slate-400 mt-1">
-                            🕒 {formatDetailedTime(tx.exactDate || tx.date)}
-                          </div>
+                          )}
                         </div>
 
-                        <div className="text-right shrink-0">
-                          <span
-                            className={`text-sm font-black tabular-nums ${
-                              isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                            }`}
-                          >
-                            {isInc ? '+' : '-'}{formatCurrency(tx.amount)}
-                          </span>
+                        <div className="font-extrabold text-xs sm:text-sm text-slate-900 dark:text-white mt-1.5 leading-snug">
+                          {grp.name} {count > 1 ? `(× ${count} ခု)` : ''}
                         </div>
                       </div>
 
-                      {/* Admin Master Action Bar */}
-                      {isAdmin && (
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-end gap-2">
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`text-sm sm:text-base font-black tabular-nums block ${
+                            isInc ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                          }`}
+                        >
+                          {isInc ? '+' : '-'}{formatCurrency(grp.totalAmt)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* History Collapsible Button (Option Kh) */}
+                    <div className="px-3.5 pb-3 pt-1 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+                      <button
+                        onClick={() =>
+                          setExpandedGroupKeys((prev) => ({
+                            ...prev,
+                            [grp.key]: !prev[grp.key],
+                          }))
+                        }
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        <span>🕒 မှတ်တမ်း ({count} ခု)</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {count === 1 && isAdmin && (
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleOpenEditTx(tx)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 rounded-lg flex items-center gap-1"
+                            onClick={() => handleOpenEditTx(grp.items[0])}
+                            className="px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 rounded flex items-center gap-1"
                           >
                             <Edit2 className="w-3 h-3" />
                             <span>ပြင်မည်</span>
                           </button>
                           <button
-                            onClick={() => handleDeleteTx(tx)}
-                            className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-lg flex items-center gap-1"
+                            onClick={() => handleDeleteTx(grp.items[0])}
+                            className="px-2 py-0.5 text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950 rounded flex items-center gap-1"
                           >
                             <Trash2 className="w-3 h-3" />
                             <span>ဖျက်မည်</span>
@@ -642,9 +609,60 @@ export function FinanceTab() {
                         </div>
                       )}
                     </div>
-                  );
-                })
-            )}
+
+                    {/* Expanded Detailed Sub-transactions & Audit Log (Option Kh) */}
+                    {isExpanded && (
+                      <div className="p-3 bg-slate-100/60 dark:bg-slate-950/60 border-t border-slate-200/60 dark:border-slate-800 space-y-2.5 animate-in slide-in-from-top-1 duration-150">
+                        {grp.items.map((subTx, idx) => (
+                          <div
+                            key={subTx.id || idx}
+                            className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {formatDetailedTime(subTx.exactDate || subTx.date)}
+                              </span>
+                              <span className={`font-black ${isInc ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                {isInc ? '+' : '-'}{formatCurrency(subTx.amount)}
+                              </span>
+                            </div>
+
+                            {/* Sub-item Audit History Trail */}
+                            {subTx.history && subTx.history.length > 0 && (
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 p-1.5 rounded-lg space-y-0.5">
+                                {subTx.history.map((h: any, hIdx: number) => (
+                                  <div key={hIdx} className="truncate">
+                                    • <b className="text-slate-700 dark:text-slate-300">{h.by || 'User'}</b>: {h.msg || 'Action'} ({h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {isAdmin && count > 1 && (
+                              <div className="pt-1 flex justify-end gap-2 text-[10px]">
+                                <button
+                                  onClick={() => handleOpenEditTx(subTx)}
+                                  className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                                >
+                                  ပြင်မည်
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTx(subTx)}
+                                  className="text-rose-600 dark:text-rose-400 font-bold hover:underline"
+                                >
+                                  ဖျက်မည်
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
           </div>
 
           {/* Bottom Control Bar of Day Detail */}

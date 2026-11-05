@@ -10,13 +10,14 @@ import {
   ChevronRight,
   ArrowLeft,
   Trash2,
+  Edit2,
   Clock,
   Layers,
   Sparkles
 } from 'lucide-react';
 import { db, collection, onSnapshot, query, where } from '../../lib/firebase';
 import { TransactionItem } from '../../types';
-import { addPersonalTransaction, adminMasterDeleteTransaction, getCategorySettings } from '../../lib/dataService';
+import { addPersonalTransaction, adminMasterDeleteTransaction, adminMasterEditTransaction, getCategorySettings } from '../../lib/dataService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -57,6 +58,16 @@ export function PersonalWallet() {
   const [formAmount, setFormAmount] = useState<string>('');
   const [formDate, setFormDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Edit Personal Entry Modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingTx, setEditingTx] = useState<TransactionItem | null>(null);
+  const [editFormType, setEditFormType] = useState<'ဝင်ငွေ' | 'ထွက်ငွေ'>('ထွက်ငွေ');
+  const [editFormSubGroup, setEditFormSubGroup] = useState<string>('');
+  const [editFormName, setEditFormName] = useState<string>('');
+  const [editFormAmount, setEditFormAmount] = useState<string>('');
+  const [editFormDate, setEditFormDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
 
   useEffect(() => {
     // Load categories
@@ -195,6 +206,51 @@ export function PersonalWallet() {
       showToast('စာရင်းဖျက်သိမ်းပြီးပါပြီ', 'success');
     } catch (err: any) {
       showToast(err.message || 'ဖျက်၍မရပါ', 'error');
+    }
+  };
+
+  const handleOpenEditPersonalTx = (tx: TransactionItem) => {
+    setEditingTx(tx);
+    setEditFormType(tx.type as 'ဝင်ငွေ' | 'ထွက်ငွေ');
+    setEditFormSubGroup(tx.subGroup || (categories[0] || 'အထွေထွေ'));
+    setEditFormName(tx.name);
+    setEditFormAmount(String(tx.amount));
+    const d = parseAnyDate(tx.date || tx.exactDate);
+    setEditFormDate(!isNaN(d.getTime()) ? d.toLocaleDateString('en-CA') : getLocalDateString());
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditPersonalTx = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTx) return;
+    const amt = parseFloat(editFormAmount);
+    if (!amt || amt <= 0) {
+      showToast('ငွေပမာဏ မှန်ကန်စွာ ထည့်ပါ', 'error');
+      return;
+    }
+    setIsEditSubmitting(true);
+    try {
+      const parts = editFormDate.split('-').map(Number);
+      const txDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+
+      await adminMasterEditTransaction(
+        editingTx.id,
+        {
+          name: editFormName.trim() || (editFormType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ'),
+          amount: amt,
+          type: editFormType,
+          group: 'Personal',
+          date: txDate,
+        },
+        profile?.name || 'Admin'
+      );
+
+      showToast('ကိုယ်ပိုင် ငွေစာရင်း ပြင်ဆင်ပြီးပါပြီ', 'success');
+      setShowEditModal(false);
+    } catch (err: any) {
+      showToast(err.message || 'ပြင်ဆင်၍မရပါ', 'error');
+    } finally {
+      setIsEditSubmitting(false);
     }
   };
 
@@ -490,15 +546,36 @@ export function PersonalWallet() {
                         }`}>
                           {isIncome ? '+' : '-'}{Number(tx.amount).toLocaleString()} MMK
                         </span>
-                        <button
-                          onClick={() => handleDeletePersonalTx(tx)}
-                          className="mt-1 text-[11px] font-semibold text-rose-500 hover:text-rose-700 px-2 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-flex items-center gap-1 transition-colors"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          <span>ဖျက်မည်</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2 mt-1">
+                          <button
+                            onClick={() => handleOpenEditPersonalTx(tx)}
+                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 px-2 py-0.5 rounded hover:bg-indigo-50 dark:hover:bg-indigo-950/40 inline-flex items-center gap-1 transition-colors"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            <span>ပြင်မည်</span>
+                          </button>
+                          <button
+                            onClick={() => handleDeletePersonalTx(tx)}
+                            className="text-[11px] font-semibold text-rose-500 hover:text-rose-700 px-2 py-0.5 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 inline-flex items-center gap-1 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>ဖျက်မည်</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Sub-item Audit History Trail (Option Kh) */}
+                    {tx.history && tx.history.length > 0 && (
+                      <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl space-y-0.5 border border-slate-100 dark:border-slate-800">
+                        <div className="font-bold text-slate-600 dark:text-slate-300 mb-0.5">🕒 လုပ်ဆောင်ချက် သမိုင်းမှတ်တမ်း:</div>
+                        {tx.history.map((h: any, hIdx: number) => (
+                          <div key={hIdx} className="truncate">
+                            • <b className="text-slate-700 dark:text-slate-200">{h.by || 'Admin'}</b>: {h.msg || 'Action'} ({h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -617,6 +694,123 @@ export function PersonalWallet() {
                   className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 min-h-[48px] active:scale-98 transition-all"
                 >
                   {isSubmitting ? t('သိမ်းဆည်းနေပါသည်...', 'Saving...') : t('စာရင်းသိမ်းမည်', 'Save Record')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PERSONAL TRANSACTION MODAL */}
+      {showEditModal && editingTx && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
+              {t('ကိုယ်ပိုင် ငွေစာရင်း ပြင်ဆင်မည်', 'Edit Private Transaction')}
+            </h3>
+
+            <form onSubmit={handleSaveEditPersonalTx} className="space-y-4 pt-4">
+              {/* Type Switcher */}
+              <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditFormType('ဝင်ငွေ')}
+                  className={`py-2.5 rounded-xl font-bold text-xs transition-all min-h-[44px] ${
+                    editFormType === 'ဝင်ငွေ'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  + {t('ဝင်ငွေ', 'Income')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditFormType('ထွက်ငွေ')}
+                  className={`py-2.5 rounded-xl font-bold text-xs transition-all min-h-[44px] ${
+                    editFormType === 'ထွက်ငွေ'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  - {t('ထွက်ငွေ', 'Expense')}
+                </button>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('ငွေပမာဏ (MMK) *', 'Amount (MMK) *')}
+                </label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={editFormAmount}
+                  onChange={(e) => setEditFormAmount(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold focus:border-indigo-500 outline-none min-h-[46px]"
+                  required
+                />
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('အကြောင်းအရာ အမည်', 'Description / Title')}
+                </label>
+                <input
+                  type="text"
+                  placeholder={editFormType === 'ဝင်ငွေ' ? 'ဥပမာ - လစာ၊ အခြားဝင်ငွေ' : 'ဥပမာ - မနက်စာ၊ ဆီဖိုး'}
+                  value={editFormName}
+                  onChange={(e) => setEditFormName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold focus:border-indigo-500 outline-none min-h-[46px]"
+                />
+              </div>
+
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('အမျိုးအစား', 'Category')}
+                </label>
+                <select
+                  value={editFormSubGroup}
+                  onChange={(e) => setEditFormSubGroup(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold focus:border-indigo-500 outline-none min-h-[46px]"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {t('ရက်စွဲ', 'Date')}
+                </label>
+                <input
+                  type="date"
+                  value={editFormDate}
+                  onChange={(e) => setEditFormDate(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-semibold focus:border-indigo-500 outline-none min-h-[46px]"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 min-h-[48px]"
+                >
+                  {t('မလုပ်တော့ပါ', 'Cancel')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditSubmitting}
+                  className="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 min-h-[48px] active:scale-98 transition-all"
+                >
+                  {isEditSubmitting ? t('ပြင်ဆင်နေပါသည်...', 'Updating...') : t('ပြင်ဆင်မှု သိမ်းမည်', 'Update Record')}
                 </button>
               </div>
             </form>

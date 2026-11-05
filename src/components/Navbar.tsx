@@ -75,33 +75,21 @@ export function Navbar({
             </button>
           </div>
 
-          {/* Zone 2: Cash On Hand Indicator (ADMIN ONLY - HIDDEN FROM STAFF) */}
-          {isAdmin ? (
-            <div className="flex items-center gap-1.5 shrink min-w-0">
-              <div className="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-2xl bg-indigo-50 dark:bg-slate-800/80 border border-indigo-100 dark:border-slate-700/60 text-xs">
-                <Wallet className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <span className="hidden md:inline text-slate-500 text-[11px] font-medium">အံဆွဲ:</span>
-                <span className="font-black text-indigo-950 dark:text-white truncate">
-                  {drawerCash.toLocaleString()} <span className="text-[9px] text-slate-400">Ks</span>
-                </span>
-              </div>
-
-              {activeAdminView && (
-                <button
-                  onClick={onResetToCounter}
-                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-200 transition-colors"
-                >
-                  ← ကောင်တာ
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400">
-                {t('ကောင်တာ အရောင်း/စက်ပြင်', 'Counter POS')}
+          {/* Zone 2: Navigation Status */}
+          <div className="flex items-center gap-1.5 shrink min-w-0">
+            {activeAdminView ? (
+              <button
+                onClick={onResetToCounter}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-200 transition-colors"
+              >
+                ← {t('ကောင်တာ အရောင်း/စက်ပြင်သို့', 'Back to Counter')}
+              </button>
+            ) : (
+              <span className="text-[11px] font-bold text-slate-400 hidden sm:inline">
+                {t('ကောင်တာ အရောင်း & စက်ပြင်', 'Counter POS & Service')}
               </span>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Zone 3: Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">

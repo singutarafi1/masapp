@@ -12,6 +12,8 @@ import {
   Clock,
   User,
   Plus,
+  History,
+  ChevronDown,
 } from 'lucide-react';
 import { db, collection, onSnapshot } from '../../lib/firebase';
 import { DebtItem, DebtStatus, SortType } from '../../types';
@@ -35,6 +37,9 @@ export function DebtTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortType, setSortType] = useState<SortType>('modified_desc');
   const [showSortMenu, setShowSortMenu] = useState(false);
+
+  // Accordion state for history logs (Option Kh)
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
 
   // Pay Modal State
   const [payingDebt, setPayingDebt] = useState<DebtItem | null>(null);
@@ -522,6 +527,40 @@ export function DebtTab() {
                                   </span>
                                 </div>
                               ))}
+                            </div>
+                          )}
+
+                          {/* History Accordion (Option Kh) */}
+                          {d.history && d.history.length > 0 && (
+                            <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedHistoryIds((prev) => ({
+                                    ...prev,
+                                    [d.id]: !prev[d.id],
+                                  }))
+                                }
+                                className="flex items-center gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                                <span>🕒 မှတ်တမ်း ({d.history.length} ခု)</span>
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                    expandedHistoryIds[d.id] ? 'rotate-180' : ''
+                                  }`}
+                                />
+                              </button>
+
+                              {expandedHistoryIds[d.id] && (
+                                <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl space-y-1 animate-in slide-in-from-top-1 duration-150">
+                                  {d.history.map((h: any, idx: number) => (
+                                    <div key={idx} className="truncate">
+                                      • <b className="text-slate-700 dark:text-slate-200">{h.by || 'User'}</b>: {h.msg || 'Action'} ({h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
 

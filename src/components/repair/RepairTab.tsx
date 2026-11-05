@@ -17,6 +17,8 @@ import {
   Clock,
   CheckCircle2,
   FileText,
+  History,
+  ChevronDown,
 } from 'lucide-react';
 import { db, collection, onSnapshot } from '../../lib/firebase';
 import { RepairItem, RepairStatus, SortType } from '../../types';
@@ -40,6 +42,9 @@ export function RepairTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortType, setSortType] = useState<SortType>('modified_desc');
   const [showSortMenu, setShowSortMenu] = useState(false);
+
+  // Accordion state for history logs (Option Kh)
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
 
   // Modal states
   const [selectedRepair, setSelectedRepair] = useState<RepairItem | null>(null);
@@ -508,6 +513,41 @@ export function RepairTab() {
                       {r.date}
                     </span>
                   </div>
+
+                  {/* Row 4: History Accordion (Option Kh) */}
+                  {r.history && r.history.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedHistoryIds((prev) => ({
+                            ...prev,
+                            [r.id]: !prev[r.id],
+                          }));
+                        }}
+                        className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        <span>🕒 မှတ်တမ်း ({r.history.length} ခု)</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                            expandedHistoryIds[r.id] ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+
+                      {expandedHistoryIds[r.id] && (
+                        <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl space-y-1 animate-in slide-in-from-top-1 duration-150">
+                          {r.history.map((h: any, idx: number) => (
+                            <div key={idx} className="truncate">
+                              • <b className="text-slate-700 dark:text-slate-200">{h.by || 'User'}</b>: {h.msg || 'Action'} ({h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

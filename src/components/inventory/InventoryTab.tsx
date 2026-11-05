@@ -15,6 +15,8 @@ import {
   AlertCircle,
   Archive,
   History,
+  ChevronDown,
+  Clock,
 } from 'lucide-react';
 import { db, collection, onSnapshot } from '../../lib/firebase';
 import { ProductItem, SortType } from '../../types';
@@ -40,6 +42,9 @@ export function InventoryTab() {
   const [sortType, setSortType] = useState<SortType>('modified_desc');
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grouped'>('list');
+
+  // Accordion state for history logs (Option Kh)
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Record<string, boolean>>({});
 
   // Modals state
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
@@ -434,6 +439,39 @@ export function InventoryTab() {
             </button>
           )}
         </div>
+
+        {/* Row 3: History Accordion (Option Kh) */}
+        {p.history && p.history.length > 0 && (
+          <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+            <button
+              onClick={() =>
+                setExpandedHistoryIds((prev) => ({
+                  ...prev,
+                  [p.id]: !prev[p.id],
+                }))
+              }
+              className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>🕒 မှတ်တမ်း ({p.history.length} ခု)</span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                  expandedHistoryIds[p.id] ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {expandedHistoryIds[p.id] && (
+              <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/80 p-2 rounded-xl space-y-1 animate-in slide-in-from-top-1 duration-150">
+                {p.history.map((h: any, idx: number) => (
+                  <div key={idx} className="truncate">
+                    • <b className="text-slate-700 dark:text-slate-200">{h.by || 'User'}</b>: {h.msg || 'Action'} ({h.time ? new Date(h.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''})
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
@@ -443,8 +481,8 @@ export function InventoryTab() {
       {/* Top Controls & KPI Bar */}
       <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 sm:px-6">
         <div className="max-w-5xl mx-auto space-y-3.5">
-          {/* Quick Metrics (Staff does NOT see stock cost value) */}
-          <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} gap-2 sm:gap-2.5`}>
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
             <div className="p-2.5 sm:p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 block truncate">
                 ပစ္စည်းအရေအတွက်
@@ -453,17 +491,6 @@ export function InventoryTab() {
                 {stats.totalItemsCount.toLocaleString()}
               </span>
             </div>
-
-            {isAdmin && (
-              <div className="p-2.5 sm:p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 min-w-0 overflow-hidden">
-                <span className="text-[10px] sm:text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 block truncate">
-                  စတော့အရင်းတန်ဖိုး
-                </span>
-                <span className="text-base sm:text-lg font-black text-indigo-700 dark:text-indigo-300 tabular-nums truncate block">
-                  {formatCurrency(stats.totalCostValue)}
-                </span>
-              </div>
-            )}
 
             <div className="p-2.5 sm:p-3 rounded-2xl bg-rose-50/60 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-800/60 min-w-0 overflow-hidden">
               <span className="text-[10px] sm:text-[11px] font-semibold text-rose-600 dark:text-rose-400 block truncate">
