@@ -36,6 +36,7 @@ import {
   createTransferPair,
 } from '../../lib/dataService';
 import { addDoc, serverTimestamp } from '../../lib/firebase';
+import { useBackHandler } from '../../lib/backNavigation';
 
 export function FinanceTab() {
   const { profile, isAdmin } = useAuth();
@@ -63,6 +64,13 @@ export function FinanceTab() {
   const [showOwnerFundModal, setShowOwnerFundModal] = useState(false);
   const [ownerFundAmt, setOwnerFundAmt] = useState('');
   const [ownerFundNote, setOwnerFundNote] = useState('');
+
+  // Step-by-step Hardware Back Key integration for Sketchware WebView
+  useBackHandler(activeDayDate !== null, () => setActiveDayDate(null));
+  useBackHandler(showAddTxModal, () => setShowAddTxModal(false));
+  useBackHandler(showEditTxModal, () => setShowEditTxModal(false));
+  useBackHandler(showSettlementModal, () => setShowSettlementModal(false));
+  useBackHandler(showOwnerFundModal, () => setShowOwnerFundModal(false));
 
   // Transaction Form state
   const [txFormData, setTxFormData] = useState({

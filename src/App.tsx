@@ -20,6 +20,7 @@ import { DataArchiveControl } from './components/admin/DataArchiveControl';
 import { RegisterModal } from './components/auth/RegisterModal';
 import { db, collection, onSnapshot } from './lib/firebase';
 import { Loader2 } from 'lucide-react';
+import { useBackHandler } from './lib/backNavigation';
 
 function AppContent() {
   const { user, isAdmin, isLoading } = useAuth();
@@ -33,6 +34,23 @@ function AppContent() {
     return (localStorage.getItem('app_theme') as 'light' | 'dark') || 'light';
   });
   const [isAiOpen, setIsAiOpen] = useState(false);
+
+  // Step-by-step Hardware Back Button handlers (LIFO order for SKW WebView)
+  useBackHandler(activeTab !== 'inventory' && activeAdminView === null, () => {
+    setActiveTab('inventory');
+  });
+  useBackHandler(activeAdminView !== null, () => {
+    setActiveAdminView(null);
+  });
+  useBackHandler(isDrawerOpen, () => {
+    setIsDrawerOpen(false);
+  });
+  useBackHandler(isAiOpen, () => {
+    setIsAiOpen(false);
+  });
+  useBackHandler(isRegisterOpen, () => {
+    setIsRegisterOpen(false);
+  });
 
   // Sync theme with HTML class and localStorage
   useEffect(() => {

@@ -31,6 +31,7 @@ import {
   deleteRepairPermanently,
 } from '../../lib/dataService';
 import { exportVoucherImage, downloadVoucherDataUrl } from '../../lib/voucher';
+import { useBackHandler } from '../../lib/backNavigation';
 
 export function RepairTab() {
   const { profile, isAdmin } = useAuth();
@@ -56,6 +57,10 @@ export function RepairTab() {
   const [voucherDataUrl, setVoucherDataUrl] = useState<string | null>(null);
   const [isGeneratingVoucher, setIsGeneratingVoucher] = useState(false);
   const voucherCaptureRef = useRef<HTMLDivElement>(null);
+
+  // Step-by-step Hardware Back Key integration for Sketchware WebView
+  useBackHandler(showModal, () => setShowModal(false));
+  useBackHandler(voucherDataUrl !== null, () => setVoucherDataUrl(null));
 
   // Form State
   const [formData, setFormData] = useState<{
@@ -715,12 +720,16 @@ export function RepairTab() {
                     </label>
                     <input
                       type="number"
-                      value={formData.cost}
+                      inputMode="numeric"
+                      value={formData.cost === 0 ? '' : formData.cost}
                       onChange={(e) =>
-                        setFormData({ ...formData, cost: Number(e.target.value) })
+                        setFormData({
+                          ...formData,
+                          cost: e.target.value === '' ? 0 : Number(e.target.value),
+                        })
                       }
                       placeholder="0"
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white"
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold tabular-nums text-slate-900 dark:text-white"
                     />
                   </div>
 
@@ -730,12 +739,16 @@ export function RepairTab() {
                     </label>
                     <input
                       type="number"
-                      value={formData.income}
+                      inputMode="numeric"
+                      value={formData.income === 0 ? '' : formData.income}
                       onChange={(e) =>
-                        setFormData({ ...formData, income: Number(e.target.value) })
+                        setFormData({
+                          ...formData,
+                          income: e.target.value === '' ? 0 : Number(e.target.value),
+                        })
                       }
                       placeholder="0"
-                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-indigo-600 dark:text-indigo-400"
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold tabular-nums text-indigo-600 dark:text-indigo-400"
                     />
                   </div>
                 </div>

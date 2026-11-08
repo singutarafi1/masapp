@@ -26,6 +26,7 @@ import {
   voidDebtRecord,
 } from '../../lib/dataService';
 import { doc, updateDoc, serverTimestamp, arrayUnion } from '../../lib/firebase';
+import { useBackHandler } from '../../lib/backNavigation';
 
 export function DebtTab() {
   const { profile, isAdmin } = useAuth();
@@ -53,6 +54,10 @@ export function DebtTab() {
   const [editNote, setEditNote] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Step-by-step Hardware Back Key integration for Sketchware WebView
+  useBackHandler(payingDebt !== null, () => setPayingDebt(null));
+  useBackHandler(editingDebt !== null, () => setEditingDebt(null));
 
   // Real-time listener
   useEffect(() => {
