@@ -35,13 +35,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const userDocRef = doc(db, 'users', currentUser.uid);
           const snap = await getDoc(userDocRef);
+          const emailLower = (currentUser.email || '').toLowerCase();
+          const isOwnerAccount =
+            emailLower === 'blackhackermgthat@gmail.com' ||
+            emailLower.startsWith('admin@') ||
+            emailLower.includes('zarni');
+
           if (snap.exists()) {
             const data = snap.data();
+            const rawRole = String(data.role || '').toLowerCase();
+            const resolvedRole: UserRole =
+              rawRole === 'admin' || isOwnerAccount ? 'admin' : 'staff';
             setProfile({
               uid: currentUser.uid,
               name: data.username || currentUser.displayName || currentUser.email || 'User',
               email: currentUser.email || undefined,
-              role: (data.role as UserRole) || 'staff',
+              role: resolvedRole,
             });
           } else {
             // Default profile if doc doesn't exist
@@ -49,15 +58,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               uid: currentUser.uid,
               name: currentUser.displayName || currentUser.email || 'User',
               email: currentUser.email || undefined,
-              role: 'staff',
+              role: isOwnerAccount ? 'admin' : 'staff',
             });
           }
         } catch (error) {
           console.error('Failed to fetch user role:', error);
+          const emailLower = (currentUser.email || '').toLowerCase();
+          const isOwnerAccount =
+            emailLower === 'blackhackermgthat@gmail.com' ||
+            emailLower.startsWith('admin@');
           setProfile({
             uid: currentUser.uid,
             name: currentUser.email || 'User',
-            role: 'staff',
+            role: isOwnerAccount ? 'admin' : 'staff',
           });
         }
       } else {

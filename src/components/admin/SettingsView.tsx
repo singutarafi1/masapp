@@ -40,7 +40,7 @@ export function SettingsView() {
     themeConfig,
   } = useSettings();
 
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   const [titleInput, setTitleInput] = useState(shopTitle);
   const [newCategoryInput, setNewCategoryInput] = useState('');
@@ -61,7 +61,10 @@ export function SettingsView() {
       showToast(t('ဤအုပ်စု ရှိပြီးသားဖြစ်ပါသည်', 'Category already exists'), 'warning');
       return;
     }
-    await addProductCategory(clean);
+    await runWithLoading(
+      () => addProductCategory(clean),
+      `ပစ္စည်းအုပ်စု "${clean}" Online သိမ်းဆည်းနေပါသည်...`
+    );
     setNewCategoryInput('');
     showToast(t(`ပစ္စည်းအုပ်စု "${clean}" ထည့်သွင်းပြီးပါပြီ`, `Added category "${clean}"`));
   };
@@ -71,7 +74,18 @@ export function SettingsView() {
       showToast(t('ဤမူလအမျိုးအစားကို ဖျက်၍မရပါ', 'Cannot delete default category'), 'warning');
       return;
     }
-    await removeProductCategory(cat);
+    const ok = await confirmAction({
+      title: t('ပစ္စည်းအုပ်စု ပယ်ဖျက်မည်လား?', 'Remove Product Group?'),
+      message: t(`"${cat}" အုပ်စုကို ပစ္စည်းစာရင်း Group မှ ပယ်ဖျက်မည်မှာ သေချာပါသလား?`, `Are you sure you want to remove "${cat}"?`),
+      confirmText: t('ဖျက်မည်', 'Remove'),
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    await runWithLoading(
+      () => removeProductCategory(cat),
+      `ပစ္စည်းအုပ်စု "${cat}" ကို ပယ်ဖျက်နေပါသည်...`
+    );
     showToast(t(`ပစ္စည်းအုပ်စု "${cat}" ကို ပယ်ဖျက်ပြီးပါပြီ`, `Removed category "${cat}"`));
   };
 

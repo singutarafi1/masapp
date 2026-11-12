@@ -26,7 +26,7 @@ const CATEGORY_LABELS: Record<CategoryKey, string> = {
 
 export function CategorySettingsView() {
   const { profile } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   const [categories, setCategories] = useState<Record<string, string[]>>({});
   const [activeGroup, setActiveGroup] = useState<CategoryKey>('personal');
@@ -40,7 +40,7 @@ export function CategorySettingsView() {
     });
   }, []);
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = newSubCategory.trim();
     if (!clean) return;
@@ -51,26 +51,61 @@ export function CategorySettingsView() {
       return;
     }
 
-    setCategories((prev) => ({
-      ...prev,
-      [activeGroup]: [...(prev[activeGroup] || []), clean],
-    }));
+    const updated = {
+      ...categories,
+      [activeGroup]: [...currentList, clean],
+    };
+    setCategories(updated);
     setNewSubCategory('');
-    setHasChanges(true);
+
+    try {
+      await runWithLoading(
+        () => saveCategorySettings(updated, profile?.name || 'Admin'),
+        `အမျိုးအစားအသစ် "${clean}" Online သိမ်းဆည်းနေပါသည်...`
+      );
+      showToast(`အမျိုးအစား "${clean}" ထည့်သွင်းပြီးပါပြီ`, 'success');
+      setHasChanges(false);
+    } catch (err: any) {
+      showToast(err.message || 'သိမ်းဆည်းမရပါ', 'error');
+      setHasChanges(true);
+    }
   };
 
-  const handleDelete = (item: string) => {
-    setCategories((prev) => ({
-      ...prev,
-      [activeGroup]: (prev[activeGroup] || []).filter((x) => x !== item),
-    }));
-    setHasChanges(true);
+  const handleDelete = async (item: string) => {
+    const ok = await confirmAction({
+      title: 'အမျိုးအစား ပယ်ဖျက်မည်လား?',
+      message: `"${item}" ကို ${CATEGORY_LABELS[activeGroup]} စာရင်းမှ ပယ်ဖျက်မည်မှာ သေချာပါသလား?`,
+      confirmText: 'ဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    const updated = {
+      ...categories,
+      [activeGroup]: (categories[activeGroup] || []).filter((x) => x !== item),
+    };
+    setCategories(updated);
+
+    try {
+      await runWithLoading(
+        () => saveCategorySettings(updated, profile?.name || 'Admin'),
+        `အမျိုးအစား "${item}" ကို ပယ်ဖျက်နေပါသည်...`
+      );
+      showToast(`"${item}" ကို ပယ်ဖျက်ပြီးပါပြီ`, 'success');
+      setHasChanges(false);
+    } catch (err: any) {
+      showToast(err.message || 'ဖျက်၍မရပါ', 'error');
+      setHasChanges(true);
+    }
   };
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await saveCategorySettings(categories, profile?.name || 'Admin');
+      await runWithLoading(
+        () => saveCategorySettings(categories, profile?.name || 'Admin'),
+        'အမျိုးအစားများ Online သိမ်းဆည်းနေပါသည်...'
+      );
       showToast('အမျိုးအစားများ အောင်မြင်စွာ သိမ်းဆည်းပြီးပါပြီ', 'success');
       setHasChanges(false);
     } catch (err: any) {

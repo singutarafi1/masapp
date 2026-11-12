@@ -37,7 +37,7 @@ import {
 
 export function InventoryTab() {
   const { profile, isAdmin } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, promptAction, runWithLoading } = useToast();
   const { productCategories, addProductCategory, t, themeConfig } = useSettings();
 
   const [products, setProducts] = useState<ProductItem[]>([]);
@@ -241,19 +241,31 @@ export function InventoryTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: editingProduct ? 'ပစ္စည်းစာရင်း ပြင်ဆင်မည်လား?' : 'ပစ္စည်းအသစ် ထည့်သွင်းမည်လား?',
+      message: `"${formData.name.trim()}" (${parsedAmount} ခု) — ရောင်းဈေး ${formatCurrency(parsedPrice)} ဖြင့် ${editingProduct ? 'ပြင်ဆင်သိမ်းဆည်း' : 'အသစ်ထည့်သွင်း'}ပါမည်။`,
+      confirmText: editingProduct ? 'ပြင်ဆင်သိမ်းမည်' : 'အသစ်သွင်းမည်',
+      variant: 'info',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
-      await addOrUpdateStockProduct(
-        editingProduct ? editingProduct.id : null,
-        {
-          name: formData.name.trim(),
-          category: formData.category,
-          amount: parsedAmount,
-          costPrice: parsedCostPrice,
-          price: parsedPrice,
-        },
-        profile?.name || 'Staff',
-        recordCashExpense
+      await runWithLoading(
+        () =>
+          addOrUpdateStockProduct(
+            editingProduct ? editingProduct.id : null,
+            {
+              name: formData.name.trim(),
+              category: formData.category,
+              amount: parsedAmount,
+              costPrice: parsedCostPrice,
+              price: parsedPrice,
+            },
+            profile?.name || 'Staff',
+            recordCashExpense
+          ),
+        editingProduct ? 'ပစ္စည်းစာရင်း ပြင်ဆင်သိမ်းဆည်းနေပါသည်...' : 'ပစ္စည်းအသစ် Online သိမ်းဆည်းနေပါသည်...'
       );
       showToast(editingProduct ? 'ပစ္စည်းစာရင်း ပြင်ဆင်ပြီးပါပြီ' : 'ပစ္စည်းအသစ် ထည့်သွင်းပြီးပါပြီ');
       setShowProductModal(false);
@@ -287,20 +299,35 @@ export function InventoryTab() {
       return;
     }
 
+    const totalSellPrice = sellingProduct.price * sellQty;
+    const ok = await confirmAction({
+      title: sellMode === 'credit' ? '📒 အကြွေးရောင်းချမှု အတည်ပြုရန်' : '💵 လက်ငင်းရောင်းချမှု အတည်ပြုရန်',
+      message: `${sellingProduct.name} (${sellQty} ခု)\nကျသင့်ငွေ: ${formatCurrency(totalSellPrice)}${
+        sellMode === 'credit' ? `\nဝယ်သူ: ${creditCustomer.trim()}` : ''
+      }`,
+      confirmText: sellMode === 'credit' ? 'အကြွေးရောင်းမည်' : 'ရောင်းချမည်',
+      variant: sellMode === 'credit' ? 'warning' : 'success',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
-      await sellProductItem(
-        sellingProduct,
-        sellQty,
-        sellMode,
-        sellMode === 'credit'
-          ? {
-              customer: creditCustomer.trim(),
-              phone: creditPhone.trim(),
-              note: creditNote.trim(),
-            }
-          : null,
-        profile?.name || 'Staff'
+      await runWithLoading(
+        () =>
+          sellProductItem(
+            sellingProduct,
+            sellQty,
+            sellMode,
+            sellMode === 'credit'
+              ? {
+                  customer: creditCustomer.trim(),
+                  phone: creditPhone.trim(),
+                  note: creditNote.trim(),
+                }
+              : null,
+            profile?.name || 'Staff'
+          ),
+        'အရောင်းစာရင်းနှင့် စတော့လက်ကျန် Online ချိတ်ဆက်နေပါသည်...'
       );
       showToast(
         sellMode === 'credit'
@@ -321,13 +348,25 @@ export function InventoryTab() {
     const isSold = item.status === 'ရောင်းပြီး';
     const confirmMsg = isSold
       ? `မှားရောင်းမိသော "${item.name}" ၁ ခုစာကို ဖျက်မည်လား?\n(စတော့ထဲ ၁ ခု ပြန်တိုးပေးပြီး ဝင်ငွေစာရင်းမှ ၁ ခုစာ ပြန်နှုတ်ပါမည်)`
-      : `"${item.name}" ကို စာရင်းမှ အပြီးဖျက်မည်လား?`;
+      : `"${item.name}" (လက်ကျန် ${item.amount} ခု) ကို စာရင်းမှ အပြီးတိုင် ဖျက်သိမ်းမည်လား?`;
 
-    if (!window.confirm(confirmMsg)) return;
+    const ok = await confirmAction({
+      title: isSold ? 'အရောင်း ၁ ခုစာ ပြန်ဖြုတ်မည်လား?' : 'ပစ္စည်းစာရင်း အပြီးဖျက်မည်လား?',
+      message: confirmMsg,
+      confirmText: isSold ? '၁ ခု ပြန်ဖြုတ်မည်' : 'အပြီးဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     try {
-      await deleteOrRollbackProduct(item, products, profile?.name || 'Staff');
+      await runWithLoading(
+        () => deleteOrRollbackProduct(item, products, profile?.name || 'Staff'),
+        isSold ? 'အရောင်းစာရင်း ပြန်လည်ပြင်ဆင်နေပါသည်...' : 'ပစ္စည်းစာရင်း ဖျက်သိမ်းနေပါသည်...'
+      );
       showToast(isSold ? 'အရောင်းစာရင်း ၁ ခုစာ ပြန်လည်ပြင်ဆင်ပြီးပါပြီ' : 'ပစ္စည်းဖျက်သိမ်းပြီးပါပြီ');
+      if (editingProduct?.id === item.id) {
+        setShowProductModal(false);
+      }
     } catch (err: any) {
       showToast(err.message || 'အမှားဖြစ်ပွားပါသည်', 'error');
     }
@@ -450,15 +489,29 @@ export function InventoryTab() {
             </div>
           </div>
 
-          {!isSold && !isOut && (
-            <button
-              onClick={() => handleOpenSell(p)}
-              className="flex items-center gap-2 min-h-[42px] px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 shadow-sm"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span>ရောင်းမည်</span>
-            </button>
-          )}
+          <div className="flex items-center gap-1.5">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => handleDeleteProduct(p)}
+                className="min-h-[42px] px-2.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-1 transition-all active:scale-95"
+                title={isSold ? 'မှားရောင်းမိ၍ ၁ ခု ပြန်ဖြုတ်မည်' : 'ပစ္စည်းစာရင်း ဖျက်မည်'}
+              >
+                {isSold ? <RotateCcw className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span className="hidden sm:inline">{isSold ? 'ပြန်ဖြုတ်' : 'ဖျက်မည်'}</span>
+              </button>
+            )}
+
+            {!isSold && !isOut && (
+              <button
+                onClick={() => handleOpenSell(p)}
+                className="flex items-center gap-2 min-h-[42px] px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all active:scale-95 shadow-sm"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>ရောင်းမည်</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Row 3: History Accordion (Option Kh) */}
@@ -548,13 +601,24 @@ export function InventoryTab() {
               <span>ရောင်း</span>
             </button>
           )}
-          <button
-            onClick={() => handleOpenEdit(p)}
-            className="min-h-[38px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-            title="ပြင်ဆင်ရန်"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
+          {!isSold && (
+            <button
+              onClick={() => handleOpenEdit(p)}
+              className="min-h-[38px] min-w-[36px] flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+              title="ပြင်ဆင်ရန်"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => handleDeleteProduct(p)}
+              className="min-h-[38px] min-w-[36px] flex items-center justify-center rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50"
+              title={isSold ? '၁ ခု ပြန်ဖြုတ်မည်' : 'အပြီးဖျက်မည်'}
+            >
+              {isSold ? <RotateCcw className="w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -835,15 +899,21 @@ export function InventoryTab() {
                 </label>
                 <select
                   value={formData.category}
-                  onChange={(e) => {
-                    if (e.target.value === '__NEW__') {
-                      const newCat = window.prompt(t('အုပ်စုအသစ် ရိုက်ထည့်ပါ', 'Enter new category name:'));
+                  onChange={async (e) => {
+                    const val = e.target.value;
+                    if (val === '__NEW__') {
+                      const newCat = await promptAction({
+                        title: t('+ အုပ်စုအသစ် ထည့်မည်', '+ Add New Category'),
+                        message: t('ပစ္စည်းအုပ်စုအမည် အသစ် ရိုက်ထည့်ပါ', 'Enter new category name:'),
+                        placeholder: 'ဥပမာ - Battery / Remax / မှန်မာ',
+                        confirmText: t('အုပ်စုထည့်မည်', 'Add Group'),
+                      });
                       if (newCat && newCat.trim()) {
-                        addProductCategory(newCat.trim());
-                        setFormData({ ...formData, category: newCat.trim() });
+                        await addProductCategory(newCat.trim());
+                        setFormData((prev) => ({ ...prev, category: newCat.trim() }));
                       }
                     } else {
-                      setFormData({ ...formData, category: e.target.value });
+                      setFormData({ ...formData, category: val });
                     }
                   }}
                   className="w-full px-3 py-2.5 min-h-[44px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:border-indigo-500 text-slate-900 dark:text-white"
@@ -975,7 +1045,17 @@ export function InventoryTab() {
                 </div>
               )}
 
-              <div className="pt-2 flex gap-3">
+              <div className="pt-2 flex gap-2">
+                {isAdmin && editingProduct && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteProduct(editingProduct)}
+                    className="min-h-[46px] px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-extrabold flex items-center justify-center gap-1 hover:bg-rose-100 active:scale-95 transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>ဖျက်မည်</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowProductModal(false)}

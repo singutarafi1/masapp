@@ -16,6 +16,8 @@ export interface HistoryItem {
 export interface ProductItem {
   id: string;
   name: string;
+  originalName?: string;
+  sourceProductId?: string;
   category: 'အထွေထွေ' | 'Hardwareအပိုပစ္စည်' | 'accessories' | string;
   amount: number;
   costPrice: number;
@@ -75,6 +77,10 @@ export interface TransactionItem {
   group: TransactionGroup;
   name: string;
   amount: number;
+  qty?: number;
+  unitCost?: number;
+  costAmount?: number;
+  isRepairCost?: boolean;
   date: any; // Firestore Timestamp or Date
   exactDate?: any;
   productId?: string;

@@ -30,7 +30,7 @@ import { useBackHandler } from '../../lib/backNavigation';
 
 export function DebtTab() {
   const { profile, isAdmin } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   const [debts, setDebts] = useState<DebtItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -177,13 +177,25 @@ export function DebtTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: '💰 အကြွေးပေးချေမှု လက်ခံမည်လား?',
+      message: `${payingDebt.customer} (${payingDebt.productName})\nပေးချေငွေ: ${formatCurrency(amt)} ကို လက်ခံပြီး ဝင်ငွေစာရင်းသို့ ထည့်သွင်းပါမည်။`,
+      confirmText: 'ငွေလက်ခံမည်',
+      variant: 'success',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
-      const res = await addDebtPayment(
-        payingDebt.id,
-        amt,
-        payNote.trim(),
-        profile?.name || 'Staff'
+      const res = await runWithLoading(
+        () =>
+          addDebtPayment(
+            payingDebt.id,
+            amt,
+            payNote.trim(),
+            profile?.name || 'Staff'
+          ),
+        'အကြွေးပေးချေမှုနှင့် ဝင်ငွေစာရင်း Online ချိတ်ဆက်နေပါသည်...'
       );
 
       showToast(
@@ -203,15 +215,19 @@ export function DebtTab() {
   const handleRevertLastPayment = async (d: DebtItem) => {
     if (!d.payments || d.payments.length === 0) return;
     const last = d.payments[d.payments.length - 1];
-    if (
-      !window.confirm(
-        `နောက်ဆုံးပေးချေမှု ${formatCurrency(last.amount)} ကို ပြန်ဖျက်မည်လား?\n(ဝင်ငွေစာရင်းမှ ပြန်နှုတ်ပြီး အကြွေးပြန်တက်ပါမည်)`
-      )
-    )
-      return;
+    const ok = await confirmAction({
+      title: 'နောက်ဆုံးပေးချေမှု ပြန်ဖြုတ်မည်လား?',
+      message: `${d.customer} ၏ နောက်ဆုံးပေးချေငွေ ${formatCurrency(last.amount)} ကို ပယ်ဖျက်ပြီး ဝင်ငွေစာရင်းမှ ပြန်နှုတ်ပါမည်။`,
+      confirmText: 'ပြန်ဖြုတ်မည်',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     try {
-      await removeLastDebtPayment(d.id, profile?.name || 'Staff');
+      await runWithLoading(
+        () => removeLastDebtPayment(d.id, profile?.name || 'Staff'),
+        'နောက်ဆုံးပေးချေမှုကို ပြန်လည်ပယ်ဖျက်နေပါသည်...'
+      );
       showToast('နောက်ဆုံးပေးချေမှု ပြန်လည်ပယ်ဖျက်ပြီးပါပြီ');
     } catch (err: any) {
       showToast(err.message || 'အမှားဖြစ်ပွားပါသည်', 'error');
@@ -220,15 +236,19 @@ export function DebtTab() {
 
   // Void Debt
   const handleVoidDebt = async (d: DebtItem) => {
-    if (
-      !window.confirm(
-        `${d.customer} ၏ ${d.productName} အကြွေးစာရင်းကို Void လုပ်မည်လား?\n(စတော့ထဲ ပစ္စည်းပြန်ထည့်ပြီး ပေးသွင်းငွေများကို ဝင်ငွေစာရင်းမှ ပြန်နှုတ်ပါမည်)`
-      )
-    )
-      return;
+    const ok = await confirmAction({
+      title: 'အကြွေးစာရင်း ပယ်ဖျက် (Void) လုပ်မည်လား?',
+      message: `${d.customer} ၏ "${d.productName}" အကြွေးစာရင်းကို Void လုပ်ပါက စတော့ထဲ ပစ္စည်းပြန်ထည့်ပြီး ပေးသွင်းငွေများကို ဝင်ငွေစာရင်းမှ ပြန်နှုတ်ပါမည်။`,
+      confirmText: 'Void / ပယ်ဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     try {
-      await voidDebtRecord(d.id, profile?.name || 'Staff');
+      await runWithLoading(
+        () => voidDebtRecord(d.id, profile?.name || 'Staff'),
+        'အကြွေးစာရင်း ပယ်ဖျက်ပြီး စတော့ပြန်ပေါင်းနေပါသည်...'
+      );
       showToast('အကြွေးစာရင်းကို Void ပြုလုပ်ပြီးပါပြီ');
     } catch (err: any) {
       showToast(err.message || 'အမှားဖြစ်ပွားပါသည်', 'error');
@@ -254,17 +274,21 @@ export function DebtTab() {
 
     setIsSubmitting(true);
     try {
-      await updateDoc(doc(db, 'debts', editingDebt.id), {
-        customer: editCustomer.trim(),
-        phone: editPhone.trim(),
-        note: editNote.trim(),
-        updatedAt: serverTimestamp(),
-        history: arrayUnion({
-          msg: `အချက်အလက် ပြင်ဆင်: ${editCustomer}`,
-          by: profile?.name || 'Staff',
-          time: new Date().toISOString(),
-        }),
-      });
+      await runWithLoading(
+        () =>
+          updateDoc(doc(db, 'debts', editingDebt.id), {
+            customer: editCustomer.trim(),
+            phone: editPhone.trim(),
+            note: editNote.trim(),
+            updatedAt: serverTimestamp(),
+            history: arrayUnion({
+              msg: `အချက်အလက် ပြင်ဆင်: ${editCustomer}`,
+              by: profile?.name || 'Staff',
+              time: new Date().toISOString(),
+            }),
+          }),
+        'အကြွေးအချက်အလက် ပြင်ဆင်သိမ်းဆည်းနေပါသည်...'
+      );
       showToast('အကြွေးအချက်အလက် ပြင်ဆင်ပြီးပါပြီ');
       setEditingDebt(null);
     } catch (err: any) {

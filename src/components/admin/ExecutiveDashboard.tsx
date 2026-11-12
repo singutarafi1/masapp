@@ -9,16 +9,18 @@ import {
   UserCheck,
   BarChart3,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  BookOpen
 } from 'lucide-react';
 import { db, collection, onSnapshot } from '../../lib/firebase';
-import { TransactionItem, RepairItem, ProductItem } from '../../types';
+import { TransactionItem, RepairItem, ProductItem, DebtItem } from '../../types';
 import { parseAnyDate } from '../../lib/dateUtils';
 
 export function ExecutiveDashboard() {
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [repairs, setRepairs] = useState<RepairItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
+  const [debts, setDebts] = useState<DebtItem[]>([]);
   const [, setIsLoading] = useState(true);
 
   // Time filter dropdown
@@ -48,10 +50,17 @@ export function ExecutiveDashboard() {
       setIsLoading(false);
     });
 
+    const unsubDebt = onSnapshot(collection(db, 'debts'), (snap) => {
+      const list: DebtItem[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as DebtItem));
+      setDebts(list);
+    });
+
     return () => {
       unsubTx();
       unsubRep();
       unsubProd();
+      unsubDebt();
     };
   }, []);
 
@@ -90,6 +99,7 @@ export function ExecutiveDashboard() {
   let revOther = 0;
   let cogsStock = 0;
   let cogsRepair = 0;
+  let realizedSalesCost = 0;
   let opexOffice = 0;
   let opexHome = 0;
   let opexOther = 0;
@@ -100,8 +110,18 @@ export function ExecutiveDashboard() {
     if (tx.type === 'ဝင်ငွေ') {
       if (tx.group === 'OwnerFund') return;
       if (tx.group === 'Service') revService += amt;
-      else if (tx.group === 'Sales') revSales += amt;
-      else revOther += amt;
+      else if (tx.group === 'Sales') {
+        revSales += amt;
+        if (typeof tx.costAmount === 'number') {
+          realizedSalesCost += tx.costAmount;
+        } else if (tx.productId) {
+          const matchedProd = products.find((p) => p.id === tx.productId);
+          if (matchedProd) {
+            const q = Number(tx.qty) || 1;
+            realizedSalesCost += (Number(matchedProd.costPrice) || 0) * q;
+          }
+        }
+      } else revOther += amt;
     } else if (tx.type === 'ထွက်ငွေ') {
       if (tx.group === 'Handover') return;
       if (tx.group === 'StockPurchase') cogsStock += amt;
@@ -112,6 +132,7 @@ export function ExecutiveDashboard() {
     }
   });
 
+  const realizedSalesProfit = revSales - realizedSalesCost;
   const totalRevenue = revService + revSales + revOther;
   const totalCogs = cogsStock + cogsRepair;
   const grossProfit = totalRevenue - totalCogs;
@@ -121,7 +142,7 @@ export function ExecutiveDashboard() {
 
   // 3. Invested Capital in Unsold Assets
   const unsoldProducts = products.filter(
-    (p) => p.category !== 'ရောင်းပြီး' && (Number(p.amount) || 0) > 0
+    (p) => p.category !== 'ရောင်းပြီး' && p.status !== 'ရောင်းပြီး' && (Number(p.amount) || 0) > 0
   );
   const investedStockCapital = unsoldProducts.reduce(
     (sum, p) => sum + (Number(p.costPrice) || 0) * (Number(p.amount) || 0),
@@ -138,6 +159,13 @@ export function ExecutiveDashboard() {
   );
   const pendingRepairsEstIncome = pendingRepairs.reduce((sum, r) => sum + (Number(r.income) || 0), 0);
   const pendingRepairsCost = pendingRepairs.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
+
+  // Accounts Receivable (Open Debts)
+  const openDebts = debts.filter((d) => d.status === 'ကျန်ရှိ');
+  const totalReceivableDebt = openDebts.reduce(
+    (sum, d) => sum + Math.max(0, (Number(d.total) || 0) - (Number(d.paid) || 0)),
+    0
+  );
 
   // 4. Personal summary strip
   let personalIn = 0;
@@ -376,19 +404,19 @@ export function ExecutiveDashboard() {
           </div>
         </div>
 
-        {/* Card 4: Repairs Under Processing */}
+        {/* Card 4: Repairs & Accounts Receivable */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1.5">
-            <span>ဆိုင်တင် စက်ပြင်လုံးရေ & ခန့်မှန်းငွေ</span>
-            <Wrench className="w-4 h-4 text-blue-500" />
+            <span>အပြင်ရရန်ရှိ အကြွေး & ဆိုင်တင်စက်</span>
+            <BookOpen className="w-4 h-4 text-rose-500" />
           </div>
-          <div className="text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums mb-2">
-            {pendingRepairsEstIncome.toLocaleString()} <span className="text-xs font-medium text-slate-400">Ks</span>
+          <div className="text-2xl font-black tracking-tight text-rose-600 dark:text-rose-400 tabular-nums mb-2">
+            {totalReceivableDebt.toLocaleString()} <span className="text-xs font-medium text-slate-400">Ks (အကြွေး)</span>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-100 dark:border-slate-800 tabular-nums">
-            <span>ပြင်ဆဲစက် {pendingRepairs.length} လုံး</span>
-            <span className="text-rose-500 font-bold">
-              အပိုပစ္စည်းရင်း: {pendingRepairsCost.toLocaleString()}
+            <span>အကြွေး {openDebts.length} စာရင်း</span>
+            <span className="text-blue-600 dark:text-blue-400 font-bold">
+              ပြင်ဆဲစက် ({pendingRepairs.length}): {pendingRepairsEstIncome.toLocaleString()}
             </span>
           </div>
         </div>
@@ -654,6 +682,21 @@ export function ExecutiveDashboard() {
               </div>
               <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 tabular-nums shrink-0">
                 +{totalRevenue.toLocaleString()}
+              </span>
+            </div>
+
+            {/* Realized Sales Margin Badge */}
+            <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/40 flex items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-bold text-emerald-950 dark:text-emerald-200 block">
+                  ရောင်းချပြီးပစ္စည်း သီးသန့်အမြတ် (Realized Sales Profit)
+                </span>
+                <span className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 tabular-nums">
+                  ရောင်းရငွေ: {revSales.toLocaleString()} − ပစ္စည်းရင်း: {realizedSalesCost.toLocaleString()}
+                </span>
+              </div>
+              <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 tabular-nums shrink-0">
+                +{realizedSalesProfit.toLocaleString()} Ks
               </span>
             </div>
 

@@ -194,6 +194,7 @@ export async function sellProductItem(
   if (existingSoldDoc) {
     const dData = existingSoldDoc.data();
     await updateDoc(doc(db, 'products', existingSoldDoc.id), {
+      sourceProductId: product.id,
       amount: dData.amount + qtyToSell,
       price: dData.price + product.price * qtyToSell,
       costPrice: dData.costPrice + product.costPrice * qtyToSell,
@@ -203,6 +204,7 @@ export async function sellProductItem(
     soldDocId = existingSoldDoc.id;
   } else {
     const newSoldRef = await addDoc(collection(db, 'products'), {
+      sourceProductId: product.id,
       name: soldName,
       category: product.category,
       status: 'ရောင်းပြီး',
@@ -217,16 +219,20 @@ export async function sellProductItem(
     soldDocId = newSoldRef.id;
   }
 
-  // Add Income Transaction
+  // Add Income Transaction with exact qty, unitCost, costAmount, and sourceProductId
   await addDoc(collection(db, 'transactions'), {
     productId: soldDocId,
+    sourceProductId: product.id,
+    qty: qtyToSell,
+    unitCost: product.costPrice,
+    costAmount: product.costPrice * qtyToSell,
     type: 'ဝင်ငွေ',
     group: 'Sales',
     name: `ရောင်းရငွေ: ${product.name}`,
     amount: product.price * qtyToSell,
     date: curDate,
     exactDate: serverTimestamp(),
-    history: [createHistoryLog('ပစ္စည်းရောင်းချမှုမှ ဝင်ငွေ', actorName)],
+    history: [createHistoryLog(`ပစ္စည်းရောင်းချမှုမှ ဝင်ငွေ (${qtyToSell} ခု)`, actorName)],
   });
 
   await logActivity(actorName, 'Sell', `${product.name} × ${qtyToSell} ရောင်းချသည်`);
@@ -242,13 +248,16 @@ export async function deleteOrRollbackProduct(
     throw new Error('အကြွေးမှ ပြန်ရငွေစာရင်းဖြစ်သည် — အကြွေးစာရင်းမှသာ ပြင်ဆင်ပါ');
   }
 
-  const isSoldItem = targetItem.status === 'ရောင်းပြီး';
+  const isSoldItem = targetItem.status === 'ရောင်းပြီး' || targetItem.category === 'ရောင်းပြီး';
 
   if (isSoldItem) {
     const originalName = targetItem.name.replace(' (ရောင်းပြီး)', '').trim();
-    const stockItem = allProducts.find(
-      (x) => x.name.trim() === originalName && x.status !== 'ရောင်းပြီး'
-    );
+    const sourceId = (targetItem as any).sourceProductId;
+    const stockItem =
+      (sourceId ? allProducts.find((x) => x.id === sourceId && x.status !== 'ရောင်းပြီး' && x.category !== 'ရောင်းပြီး') : undefined) ||
+      allProducts.find(
+        (x) => x.name.trim() === originalName && x.status !== 'ရောင်းပြီး' && x.category !== 'ရောင်းပြီး'
+      );
     const unitCost = targetItem.amount > 0 ? targetItem.costPrice / targetItem.amount : targetItem.costPrice;
     const unitPrice = targetItem.amount > 0 ? targetItem.price / targetItem.amount : targetItem.price;
     const histLog = createHistoryLog('မှားရောင်းမိ၍ ၁ ခု ပြန်လည်ဖြည့်တင်းသည်', actorName);
@@ -264,7 +273,7 @@ export async function deleteOrRollbackProduct(
     } else {
       await addDoc(collection(db, 'products'), {
         name: originalName,
-        category: targetItem.category,
+        category: targetItem.category === 'ရောင်းပြီး' ? 'အထွေထွေ' : targetItem.category,
         amount: 1,
         costPrice: unitCost,
         price: unitPrice,
@@ -285,11 +294,15 @@ export async function deleteOrRollbackProduct(
         return tb.getTime() - ta.getTime();
       });
       const latestTx = txDocs[0];
-      const txAmt = Number(latestTx.data().amount || 0);
+      const latestData = latestTx.data();
+      const txAmt = Number(latestData.amount || 0);
+      const txQty = Number(latestData.qty || 1);
       if (txAmt > unitPrice + 0.01) {
         await updateDoc(doc(db, 'transactions', latestTx.id), {
           amount: txAmt - unitPrice,
-          history: arrayUnion(createHistoryLog(`မှားရောင်းမိ၍ ${unitPrice} Ks ပြန်နှုတ်သည်`, actorName)),
+          qty: Math.max(1, txQty - 1),
+          costAmount: Math.max(0, Number(latestData.costAmount || 0) - unitCost),
+          history: arrayUnion(createHistoryLog(`မှားရောင်းမိ၍ ${unitPrice} Ks (၁ ခု) ပြန်နှုတ်သည်`, actorName)),
         });
       } else {
         await deleteDoc(doc(db, 'transactions', latestTx.id));
@@ -316,7 +329,7 @@ export async function deleteOrRollbackProduct(
 }
 
 // ----------------------------------------------------
-// 2. REPAIR WORKFLOW & BIDIRECTIONAL SYNC
+// 2. REPAIR WORKFLOW & BIDIRECTIONAL SYNC (INCOME + COST)
 // ----------------------------------------------------
 
 export async function saveRepairData(
@@ -369,58 +382,112 @@ export async function saveRepairData(
 
     await updateDoc(repRef, updatePayload);
 
-    // Sync with Transactions
-    const transQ = query(
-      collection(db, 'transactions'),
-      where('repairId', '==', id),
-      where('type', '==', 'ဝင်ငွေ')
-    );
+    // Sync BOTH Income (ဝင်ငွေ) AND Parts Cost (ထွက်ငွေ) with Transactions
+    const transQ = query(collection(db, 'transactions'), where('repairId', '==', id));
     const transSnap = await getDocs(transQ);
-    const incTx = transSnap.empty ? null : transSnap.docs[0];
+    const incTx = transSnap.docs.find((d) => d.data().type === 'ဝင်ငွေ') || null;
+    const costTx = transSnap.docs.find((d) => d.data().type === 'ထွက်ငွေ') || null;
+
     const curDate = new Date();
-    const finName = `VR:${data.vrno} ပြင်ခ (${data.name} - ${data.model})`;
+    const finIncName = `VR:${data.vrno} ပြင်ခ (${data.name} - ${data.model})`;
+    const finCostName = `VR:${data.vrno} အပိုပစ္စည်းအရင်း (${data.name} - ${data.model})`;
 
     if (data.status.includes('ထုတ်ယူပြီး')) {
+      // 1. Sync Repair Income
       if (income > 0) {
         if (incTx) {
           await updateDoc(doc(db, 'transactions', incTx.id), {
             amount: income,
-            name: finName,
+            name: finIncName,
             updatedAt: serverTimestamp(),
-            history: arrayUnion(createHistoryLog(`VR:${data.vrno} (Repair မှ Update လုပ်သည်)`, actorName)),
+            history: arrayUnion(createHistoryLog(`VR:${data.vrno} ရငွေ Update (${income} Ks)`, actorName)),
           });
         } else {
           await addDoc(collection(db, 'transactions'), {
             repairId: id,
             type: 'ဝင်ငွေ',
             group: 'Service',
-            name: finName,
+            name: finIncName,
             amount: income,
             date: curDate,
             exactDate: serverTimestamp(),
-            history: [createHistoryLog(`VR:${data.vrno} (Repair မှ Update လုပ်သည်)`, actorName)],
+            history: [createHistoryLog(`VR:${data.vrno} စက်ပြင်ရငွေ (auto)`, actorName)],
           });
         }
       } else if (incTx) {
         await deleteDoc(doc(db, 'transactions', incTx.id));
       }
-    } else {
-      if (incTx) {
-        await deleteDoc(doc(db, 'transactions', incTx.id));
+
+      // 2. Sync Repair Parts Cost (COGS)
+      if (cost > 0) {
+        if (costTx) {
+          await updateDoc(doc(db, 'transactions', costTx.id), {
+            amount: cost,
+            name: finCostName,
+            updatedAt: serverTimestamp(),
+            history: arrayUnion(createHistoryLog(`VR:${data.vrno} အပိုပစ္စည်းအရင်း Update (${cost} Ks)`, actorName)),
+          });
+        } else {
+          await addDoc(collection(db, 'transactions'), {
+            repairId: id,
+            type: 'ထွက်ငွေ',
+            group: 'Service',
+            name: finCostName,
+            amount: cost,
+            date: curDate,
+            exactDate: serverTimestamp(),
+            history: [createHistoryLog(`VR:${data.vrno} စက်ပြင် အပိုပစ္စည်းအရင်း (auto)`, actorName)],
+          });
+        }
+      } else if (costTx) {
+        await deleteDoc(doc(db, 'transactions', costTx.id));
       }
+    } else {
+      // Not collected yet -> remove any premature income/cost transactions
+      if (incTx) await deleteDoc(doc(db, 'transactions', incTx.id));
+      if (costTx) await deleteDoc(doc(db, 'transactions', costTx.id));
     }
 
     await logActivity(actorName, 'Edit Repair', `VR:${data.vrno} ${data.name}`);
   } else {
     // New Repair record
-    await addDoc(collection(db, 'repairs'), {
+    const newRepRef = await addDoc(collection(db, 'repairs'), {
       ...data,
-      cost: 0,
-      income: 0,
-      status: 'စစ်ဆေးပြုပြင်နေဆဲ',
+      cost,
+      income,
+      status: data.status || 'စစ်ဆေးပြုပြင်နေဆဲ',
       timestamp: serverTimestamp(),
       history: [createHistoryLog('ဖုန်းအသစ် လက်ခံရရှိသည်', actorName)],
     });
+
+    // If created directly as ထုတ်ယူပြီး, sync transactions immediately
+    if ((data.status || '').includes('ထုတ်ယူပြီး')) {
+      const curDate = new Date();
+      if (income > 0) {
+        await addDoc(collection(db, 'transactions'), {
+          repairId: newRepRef.id,
+          type: 'ဝင်ငွေ',
+          group: 'Service',
+          name: `VR:${data.vrno} ပြင်ခ (${data.name} - ${data.model})`,
+          amount: income,
+          date: curDate,
+          exactDate: serverTimestamp(),
+          history: [createHistoryLog(`VR:${data.vrno} စက်ပြင်ရငွေ (auto)`, actorName)],
+        });
+      }
+      if (cost > 0) {
+        await addDoc(collection(db, 'transactions'), {
+          repairId: newRepRef.id,
+          type: 'ထွက်ငွေ',
+          group: 'Service',
+          name: `VR:${data.vrno} အပိုပစ္စည်းအရင်း (${data.name} - ${data.model})`,
+          amount: cost,
+          date: curDate,
+          exactDate: serverTimestamp(),
+          history: [createHistoryLog(`VR:${data.vrno} စက်ပြင် အပိုပစ္စည်းအရင်း (auto)`, actorName)],
+        });
+      }
+    }
 
     await logActivity(actorName, 'New Repair', `VR:${data.vrno} ${data.name}`);
   }
@@ -489,6 +556,7 @@ export async function addDebtPayment(
   let soldRefId: string | null = null;
   if (isFinal) {
     const soldRef = await addDoc(collection(db, 'products'), {
+      sourceProductId: d.productId || null,
       name: baseName + ' (ရောင်းပြီး)',
       category: d.category || 'အထွေထွေ',
       status: 'ရောင်းပြီး',
@@ -506,6 +574,9 @@ export async function addDebtPayment(
 
   const txData: any = {
     debtId: debtId,
+    sourceProductId: d.productId || null,
+    qty: isFinal ? Number(d.qty || 1) : 1,
+    costAmount: isFinal ? totalCost : 0,
     type: 'ဝင်ငွေ',
     group: 'Sales',
     name: `အကြွေးရှင်း: ${d.customer} - ${baseName}`,
@@ -643,39 +714,73 @@ export async function adminMasterDeleteTransaction(tx: TransactionItem, actorNam
     return;
   }
 
-  // Case B: Repair income transaction
+  // Case B: Repair income or cost transaction
   if (tx.repairId) {
-    // If deleted directly from Finance, reset repair income to 0
+    const fieldToReset = tx.type === 'ထွက်ငွေ' ? 'cost' : 'income';
+    const label = tx.type === 'ထွက်ငွေ' ? 'အပိုပစ္စည်းအရင်း' : 'ရငွေ';
     await updateDoc(doc(db, 'repairs', tx.repairId), {
-      income: 0,
+      [fieldToReset]: 0,
       updatedAt: serverTimestamp(),
-      history: arrayUnion(createHistoryLog(`Finance မှ ${tx.amount} Ks ဝင်ငွေ ဖျက်သိမ်းသဖြင့် ရငွေ 0 ပြန်ဖြစ်သွားသည်`, actorName)),
-    });
+      history: arrayUnion(
+        createHistoryLog(`Finance မှ ${tx.amount} Ks ဖျက်သိမ်းသဖြင့် ${label} 0 ပြန်ဖြစ်သွားသည်`, actorName)
+      ),
+    }).catch(() => {});
   }
 
-  // Case C: Stock sales transaction
+  // Case C: Stock sales transaction (supports exact multi-quantity restore)
   if (tx.productId && tx.group === 'Sales') {
+    const restoreQty = Math.max(1, Number((tx as any).qty || 1));
     const pRef = doc(db, 'products', tx.productId);
     const pSnap = await getDoc(pRef);
-    if (pSnap.exists() && pSnap.data().status === 'ရောင်းပြီး') {
+
+    if (pSnap.exists() && (pSnap.data().status === 'ရောင်းပြီး' || pSnap.data().category === 'ရောင်းပြီး')) {
       const pData = pSnap.data();
-      // Restore stock
       const originalName = pData.name.replace(' (ရောင်းပြီး)', '').trim();
-      const allQ = query(collection(db, 'products'), where('name', '==', originalName));
-      const allSnap = await getDocs(allQ);
-      const stockDoc = allSnap.docs.find((d) => d.data().status !== 'ရောင်းပြီး');
-      if (stockDoc) {
-        await updateDoc(stockDoc.ref, {
-          amount: increment(1),
-          status: 'ပစ္စည်းရှိ',
-          updatedAt: serverTimestamp(),
-          history: arrayUnion(createHistoryLog('Finance မှ အရောင်းဖျက်သိမ်းသဖြင့် စတော့ ၁ ခု ပြန်တိုးသည်', actorName)),
-        });
+      const sourceProductId = (tx as any).sourceProductId || pData.sourceProductId;
+      const unitCost = Number(
+        (tx as any).unitCost || (pData.amount > 0 ? pData.costPrice / pData.amount : 0)
+      );
+
+      let restoredToExisting = false;
+      if (sourceProductId) {
+        const srcSnap = await getDoc(doc(db, 'products', sourceProductId));
+        if (srcSnap.exists() && srcSnap.data().status !== 'ရောင်းပြီး') {
+          await updateDoc(srcSnap.ref, {
+            amount: increment(restoreQty),
+            status: 'ပစ္စည်းရှိ',
+            updatedAt: serverTimestamp(),
+            history: arrayUnion(
+              createHistoryLog(`Finance မှ အရောင်းဖျက်သိမ်းသဖြင့် စတော့ ${restoreQty} ခု ပြန်တိုးသည်`, actorName)
+            ),
+          });
+          restoredToExisting = true;
+        }
       }
-      if (pData.amount > 1) {
+
+      if (!restoredToExisting) {
+        const allQ = query(collection(db, 'products'), where('name', '==', originalName));
+        const allSnap = await getDocs(allQ);
+        const stockDoc = allSnap.docs.find(
+          (d) => d.data().status !== 'ရောင်းပြီး' && d.data().category !== 'ရောင်းပြီး'
+        );
+        if (stockDoc) {
+          await updateDoc(stockDoc.ref, {
+            amount: increment(restoreQty),
+            status: 'ပစ္စည်းရှိ',
+            updatedAt: serverTimestamp(),
+            history: arrayUnion(
+              createHistoryLog(`Finance မှ အရောင်းဖျက်သိမ်းသဖြင့် စတော့ ${restoreQty} ခု ပြန်တိုးသည်`, actorName)
+            ),
+          });
+        }
+      }
+
+      if (pData.amount > restoreQty) {
         await updateDoc(pRef, {
-          amount: increment(-1),
+          amount: increment(-restoreQty),
           price: increment(-tx.amount),
+          costPrice: increment(-(unitCost * restoreQty)),
+          updatedAt: serverTimestamp(),
         });
       } else {
         await deleteDoc(pRef);
@@ -710,21 +815,46 @@ export async function adminMasterEditTransaction(
   if (old.type !== updatedData.type) changes.push(`အမျိုးအစား: ${old.type} -> ${updatedData.type}`);
   if (old.group !== updatedData.group) changes.push(`Group: ${old.group} -> ${updatedData.group}`);
 
+  const histEntry = createHistoryLog(
+    changes.length ? `Admin ပြင်ဆင်မှု: ${changes.join(' | ')}` : 'အချက်အလက် ပြင်ဆင်ခဲ့သည်',
+    actorName
+  );
+
   await updateDoc(ref, {
     ...updatedData,
     updatedAt: serverTimestamp(),
-    history: arrayUnion(
-      createHistoryLog(changes.length ? `Admin ပြင်ဆင်မှု: ${changes.join(' | ')}` : 'အချက်အလက် ပြင်ဆင်ခဲ့သည်', actorName)
-    ),
+    history: arrayUnion(histEntry),
   });
 
-  // Sync to Repair if linked
+  // Sync Transfer Pair (Handover / OwnerFund) across both Shop & Personal Wallet
+  if (old.transferId) {
+    const qTr = query(collection(db, 'transactions'), where('transferId', '==', old.transferId));
+    const sTr = await getDocs(qTr);
+    for (const docSnap of sTr.docs) {
+      if (docSnap.id !== txId) {
+        await updateDoc(docSnap.ref, {
+          amount: updatedData.amount,
+          date: updatedData.date,
+          updatedAt: serverTimestamp(),
+          history: arrayUnion(
+            createHistoryLog(`ချိတ်ဆက်ထားသော Transfer ပမာဏ ပြင်ဆင်မှု: ${old.amount} -> ${updatedData.amount} Ks`, actorName)
+          ),
+        });
+      }
+    }
+  }
+
+  // Sync to Repair if linked (both income and cost)
   if (old.repairId && updatedData.amount !== old.amount) {
+    const fieldToUpdate = updatedData.type === 'ထွက်ငွေ' ? 'cost' : 'income';
+    const label = updatedData.type === 'ထွက်ငွေ' ? 'အပိုပစ္စည်းအရင်း' : 'ရငွေ';
     await updateDoc(doc(db, 'repairs', old.repairId), {
-      income: updatedData.amount,
+      [fieldToUpdate]: updatedData.amount,
       updatedAt: serverTimestamp(),
-      history: arrayUnion(createHistoryLog(`Finance မှ ရငွေ ${updatedData.amount} Ks သို့ ပြင်ဆင်သည်`, actorName)),
-    });
+      history: arrayUnion(
+        createHistoryLog(`Finance မှ ${label} ${updatedData.amount} Ks သို့ ပြင်ဆင်သည်`, actorName)
+      ),
+    }).catch(() => {});
   }
 
   await logActivity(actorName, 'Edit Transaction', `${updatedData.name} (${updatedData.amount} Ks)`);
@@ -746,7 +876,6 @@ export async function createTransferPair(
   if (cleanAmt <= 0) throw new Error('ပမာဏ မှန်ကန်စွာ ထည့်ပါ');
 
   const isH = kind === 'handover';
-  const iso = new Date().toISOString();
   const when = dateObj || new Date();
   const tid = 'tr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const label = isH ? 'ဆိုင်မှ အပ်ငွေ' : 'ဆိုင်အတွက်ထုတ်ငွေ';
@@ -852,8 +981,7 @@ export async function saveCategorySettings(categories: Record<string, string[]>,
   await updateDoc(doc(db, 'app_settings', 'categories'), {
     ...categories,
     updatedAt: serverTimestamp(),
-  }).catch(async (err) => {
-    // If doc doesn't exist, use setDoc via writeBatch or add
+  }).catch(async () => {
     const batch = writeBatch(db);
     batch.set(doc(db, 'app_settings', 'categories'), {
       ...categories,
@@ -866,7 +994,7 @@ export async function saveCategorySettings(categories: Record<string, string[]>,
 }
 
 export async function archiveDeleteByDateRange(
-  targetCollection: 'transactions' | 'repairs' | 'products' | 'activity_logs',
+  targetCollection: 'transactions' | 'repairs' | 'products' | 'debts' | 'activity_logs',
   startDate: Date,
   endDate: Date,
   actorName: string
@@ -881,14 +1009,15 @@ export async function archiveDeleteByDateRange(
 
   snap.forEach((docItem) => {
     const data = docItem.data();
-    let itemDate = data.date || data.timestamp || data.createdAt;
+    const itemDate = data.date || data.exactDate || data.timestamp || data.createdAt || data.updatedAt;
     let ts = 0;
     if (itemDate && typeof itemDate.toDate === 'function') {
       ts = itemDate.toDate().getTime();
     } else if (itemDate instanceof Date) {
       ts = itemDate.getTime();
     } else if (typeof itemDate === 'string') {
-      ts = new Date(itemDate).getTime();
+      const parsed = new Date(itemDate).getTime();
+      ts = isNaN(parsed) ? 0 : parsed;
     }
 
     if (ts >= startTs && ts <= endTs) {
@@ -904,3 +1033,4 @@ export async function archiveDeleteByDateRange(
 
   return deletedCount;
 }
+

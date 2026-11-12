@@ -35,7 +35,7 @@ import { useBackHandler } from '../../lib/backNavigation';
 
 export function RepairTab() {
   const { profile, isAdmin } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   const [repairs, setRepairs] = useState<RepairItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -230,12 +230,24 @@ export function RepairTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: isNewRecord ? 'ဖုန်းအသစ် လက်ခံမှတ်တမ်းတင်မည်လား?' : `VR:${formData.vrno} ပြင်ဆင်ချက် သိမ်းမည်လား?`,
+      message: `${formData.name.trim()} — ${formData.model.trim()} (${formData.status})\nပြင်ခ ရငွေ: ${formatCurrency(formData.income)} | အပိုပစ္စည်းအရင်း: ${formatCurrency(formData.cost)}`,
+      confirmText: isNewRecord ? 'လက်ခံမှတ်တမ်းတင်မည်' : 'ပြင်ဆင်ချက်သိမ်းမည်',
+      variant: 'info',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
-      await saveRepairData(
-        isNewRecord ? null : selectedRepair!.id,
-        formData,
-        profile?.name || 'Staff'
+      await runWithLoading(
+        () =>
+          saveRepairData(
+            isNewRecord ? null : selectedRepair!.id,
+            formData,
+            profile?.name || 'Staff'
+          ),
+        'စက်ပြင်မှတ်တမ်းနှင့် ငွေစာရင်း Online ချိတ်ဆက်သိမ်းဆည်းနေပါသည်...'
       );
       showToast(isNewRecord ? 'ဖုန်းအသစ် လက်ခံမှတ်တမ်း တင်ပြီးပါပြီ' : 'ပြင်ဆင်မှုမှတ်တမ်း သိမ်းပြီးပါပြီ');
       setShowModal(false);
@@ -247,19 +259,24 @@ export function RepairTab() {
   };
 
   // Void Repair
-  const handleVoid = async () => {
-    if (!selectedRepair) return;
-    if (
-      !window.confirm(
-        `VR:${selectedRepair.vrno} ကို ပယ်ဖျက် (Void) လုပ်မည်လား?\n(ဆက်စပ်ငွေစာရင်းများပါ အလိုအလျောက် ပယ်ဖျက်ပါမည်)`
-      )
-    )
-      return;
+  const handleVoid = async (targetRepair?: RepairItem) => {
+    const item = targetRepair || selectedRepair;
+    if (!item) return;
+    const ok = await confirmAction({
+      title: `VR:${item.vrno} ကို ပယ်ဖျက် (Void) လုပ်မည်လား?`,
+      message: `${item.name} (${item.model}) ကို Void လုပ်ပါက ချိတ်ဆက်ထားသော ဝင်ငွေနှင့် အပိုပစ္စည်းအရင်း ငွေစာရင်းများပါ အလိုအလျောက် ပယ်ဖျက်ပေးပါမည်။`,
+      confirmText: 'Void လုပ်မည်',
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     setIsSubmitting(true);
     try {
-      await voidRepairRecord(selectedRepair.id, profile?.name || 'Staff');
-      showToast(`VR:${selectedRepair.vrno} ကို ပယ်ဖျက်ပြီးပါပြီ`);
+      await runWithLoading(
+        () => voidRepairRecord(item.id, profile?.name || 'Staff'),
+        `VR:${item.vrno} ကို ပယ်ဖျက်နေပါသည်...`
+      );
+      showToast(`VR:${item.vrno} ကို ပယ်ဖျက်ပြီးပါပြီ`);
       setShowModal(false);
     } catch (err: any) {
       showToast(err.message || 'အမှားဖြစ်ပွားပါသည်', 'error');
@@ -269,19 +286,24 @@ export function RepairTab() {
   };
 
   // Delete Permanently (Admin only)
-  const handleDeletePermanent = async () => {
-    if (!selectedRepair || !isAdmin) return;
-    if (
-      !window.confirm(
-        `VR:${selectedRepair.vrno} ကို ဒေတာဘေ့စ်ထဲမှ အပြီးဖျက်မည်လား?\n(ဤလုပ်ဆောင်ချက်သည် ပြန်ယူ၍ မရနိုင်ပါ)`
-      )
-    )
-      return;
+  const handleDeletePermanent = async (targetRepair?: RepairItem) => {
+    const item = targetRepair || selectedRepair;
+    if (!item || !isAdmin) return;
+    const ok = await confirmAction({
+      title: `VR:${item.vrno} ကို အပြီးတိုင် ဖျက်သိမ်းမည်လား?`,
+      message: `${item.name} (${item.model}) စက်ပြင်မှတ်တမ်းနှင့် ဆက်စပ်ငွေစာရင်းများကို Database ထဲမှ အပြီးတိုင် ဖျက်ပစ်ပါမည်။ (ပြန်ယူ၍ မရနိုင်ပါ)`,
+      confirmText: 'အပြီးဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     setIsSubmitting(true);
     try {
-      await deleteRepairPermanently(selectedRepair.id, selectedRepair.vrno, profile?.name || 'Admin');
-      showToast(`VR:${selectedRepair.vrno} ကို အပြီးတိုင် ဖျက်သိမ်းပြီးပါပြီ`);
+      await runWithLoading(
+        () => deleteRepairPermanently(item.id, item.vrno, profile?.name || 'Admin'),
+        `VR:${item.vrno} ကို Database မှ အပြီးဖျက်သိမ်းနေပါသည်...`
+      );
+      showToast(`VR:${item.vrno} ကို အပြီးတိုင် ဖျက်သိမ်းပြီးပါပြီ`);
       setShowModal(false);
     } catch (err: any) {
       showToast(err.message || 'အမှားဖြစ်ပွားပါသည်', 'error');
@@ -514,9 +536,25 @@ export function RepairTab() {
                       {r.status}
                     </span>
 
-                    <span className="text-[10px] text-slate-400 font-medium">
-                      {r.date}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {r.date}
+                      </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePermanent(r);
+                          }}
+                          className="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[10px] font-bold flex items-center gap-1 active:scale-95 transition-all"
+                          title="အပြီးဖျက်မည် (Admin)"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>ဖျက်မည်</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Row 4: History Accordion (Option Kh) */}
@@ -791,7 +829,7 @@ export function RepairTab() {
                 {!isNewRecord && selectedRepair?.status !== 'ပယ်ဖျက် (Void)' && (
                   <button
                     type="button"
-                    onClick={handleVoid}
+                    onClick={() => handleVoid()}
                     className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-amber-100"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
@@ -802,11 +840,12 @@ export function RepairTab() {
                 {isAdmin && !isNewRecord && (
                   <button
                     type="button"
-                    onClick={handleDeletePermanent}
-                    className="px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-100"
+                    onClick={() => handleDeletePermanent()}
+                    className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center justify-center gap-1 hover:bg-rose-100"
                     title="အပြီးဖျက်မည် (Admin only)"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
+                    <span>ဖျက်မည်</span>
                   </button>
                 )}
 

@@ -17,7 +17,7 @@ import { useToast } from '../../context/ToastContext';
 
 export function DataArchiveControl() {
   const { profile } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   // PIN security protection
   const [pin, setPin] = useState('');
@@ -27,7 +27,7 @@ export function DataArchiveControl() {
   const [isExporting, setIsExporting] = useState<string | null>(null);
 
   // Batch delete state
-  const [targetCollection, setTargetCollection] = useState<'transactions' | 'repairs' | 'products' | 'activity_logs'>('transactions');
+  const [targetCollection, setTargetCollection] = useState<'transactions' | 'repairs' | 'products' | 'debts' | 'activity_logs'>('transactions');
   const [startDate, setStartDate] = useState(new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [isDeleting, setIsDeleting] = useState(false);
@@ -43,8 +43,12 @@ export function DataArchiveControl() {
     }
   };
 
-  // Helper to trigger CSV download
+  // Helper to trigger CSV download (supports both Sketchware AndroidApp bridge & Browser)
   const downloadCSV = (filename: string, csvContent: string) => {
+    if (typeof window !== 'undefined' && typeof window.AndroidApp?.saveCsvFile === 'function') {
+      window.AndroidApp.saveCsvFile('\uFEFF' + csvContent, filename);
+      return;
+    }
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -167,9 +171,20 @@ export function DataArchiveControl() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: '⚠️ ဒေတာအစုလိုက် အပြီးဖျက်သိမ်းရန် အတည်ပြုချက်',
+      message: `${startDate} မှ ${endDate} အတွင်းရှိ "${targetCollection}" ဒေတာအားလုံးကို Database မှ အပြီးတိုင် ဖျက်ပစ်ပါမည်။ (ပြန်ယူ၍ မရနိုင်ပါ)`,
+      confirmText: 'အပြီးတိုင် ဖျက်သိမ်းမည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     setIsDeleting(true);
     try {
-      const count = await archiveDeleteByDateRange(targetCollection, start, end, profile?.name || 'Admin');
+      const count = await runWithLoading(
+        () => archiveDeleteByDateRange(targetCollection, start, end, profile?.name || 'Admin'),
+        `${targetCollection} စာရင်းများ Online ရှင်းလင်းဖျက်သိမ်းနေပါသည်...`
+      );
       showToast(`${count} records ဖျက်သိမ်းပြီးပါပြီ`, 'success');
       setConfirmName('');
     } catch (err: any) {
@@ -321,6 +336,8 @@ export function DataArchiveControl() {
               >
                 <option value="transactions">ဝင်/ထွက်ငွေစာရင်း (Transactions)</option>
                 <option value="repairs">စက်ပြင်မှတ်တမ်း (Repairs)</option>
+                <option value="products">စတော့နှင့်အရောင်းစာရင်း (Products)</option>
+                <option value="debts">အကြွေးစာရင်း (Debts)</option>
                 <option value="activity_logs">လုပ်ဆောင်ချက်မှတ်တမ်း (Activity Logs)</option>
               </select>
             </div>

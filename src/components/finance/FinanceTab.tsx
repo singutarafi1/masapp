@@ -40,7 +40,7 @@ import { useBackHandler } from '../../lib/backNavigation';
 
 export function FinanceTab() {
   const { profile, isAdmin } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
 
   const [selectedMonth, setSelectedMonth] = useState(() => getLocalDateString().slice(0, 7));
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
@@ -59,6 +59,7 @@ export function FinanceTab() {
   // Balance Check / Daily Settlement Modal
   const [showSettlementModal, setShowSettlementModal] = useState(false);
   const [physicalCashInput, setPhysicalCashInput] = useState('');
+  const [settlementMode, setSettlementMode] = useState<'day' | 'till'>('day');
 
   // Owner Fund Modal (Admin only)
   const [showOwnerFundModal, setShowOwnerFundModal] = useState(false);
@@ -189,20 +190,32 @@ export function FinanceTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: `${addTxType} စာရင်းအသစ် သွင်းမည်လား?`,
+      message: `${txFormData.name.trim()} (${txFormData.group})\nပမာဏ: ${formatCurrency(amt)} — ရက်စွဲ: ${txFormData.date}`,
+      confirmText: 'စာရင်းသိမ်းမည်',
+      variant: addTxType === 'ဝင်ငွေ' ? 'success' : 'warning',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
       const parts = txFormData.date.split('-').map(Number);
       const txDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
 
-      await addDoc(collection(db, 'transactions'), {
-        type: addTxType,
-        group: txFormData.group,
-        name: txFormData.name.trim(),
-        amount: amt,
-        date: txDate,
-        exactDate: serverTimestamp(),
-        history: [{ msg: 'ငွေစာရင်း အသစ်သွင်းသည်', by: profile?.name || 'Staff', time: new Date().toISOString() }],
-      });
+      await runWithLoading(
+        () =>
+          addDoc(collection(db, 'transactions'), {
+            type: addTxType,
+            group: txFormData.group,
+            name: txFormData.name.trim(),
+            amount: amt,
+            date: txDate,
+            exactDate: serverTimestamp(),
+            history: [{ msg: 'ငွေစာရင်း အသစ်သွင်းသည်', by: profile?.name || 'Staff', time: new Date().toISOString() }],
+          }),
+        `${addTxType} စာရင်း Online သိမ်းဆည်းနေပါသည်...`
+      );
 
       showToast(`${addTxType} စာရင်းသွင်းပြီးပါပြီ`);
       setShowAddTxModal(false);
@@ -236,21 +249,39 @@ export function FinanceTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: 'ငွေစာရင်း ပြင်ဆင်ချက် သိမ်းမည်လား?',
+      message: `"${txFormData.name.trim()}" ကို ${formatCurrency(amt)} သို့ ပြင်ဆင်သိမ်းဆည်းပါမည်။${
+        editingTx.repairId
+          ? '\n(ချိတ်ဆက်ထားသော စက်ပြင်မှတ်တမ်းကိုပါ အလိုအလျောက် Sync လုပ်ပေးပါမည်)'
+          : editingTx.transferId
+          ? '\n(ဆိုင်အံဆွဲနှင့် Personal Wallet နှစ်ဖက်စလုံး တစ်ပြိုင်နက် ပြင်ဆင်ပေးပါမည်)'
+          : ''
+      }`,
+      confirmText: 'ပြင်ဆင်ချက်သိမ်းမည်',
+      variant: 'info',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
       const parts = txFormData.date.split('-').map(Number);
       const txDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
 
-      await adminMasterEditTransaction(
-        editingTx.id,
-        {
-          name: txFormData.name.trim(),
-          amount: amt,
-          type: editingTx.type,
-          group: txFormData.group,
-          date: txDate,
-        },
-        profile?.name || 'Admin'
+      await runWithLoading(
+        () =>
+          adminMasterEditTransaction(
+            editingTx.id,
+            {
+              name: txFormData.name.trim(),
+              amount: amt,
+              type: editingTx.type,
+              group: txFormData.group,
+              date: txDate,
+            },
+            profile?.name || 'Admin'
+          ),
+        'ငွေစာရင်း ပြင်ဆင်ချက် Online Sync လုပ်နေပါသည်...'
       );
 
       showToast('ငွေစာရင်း ပြင်ဆင်ပြီးပါပြီ');
@@ -264,19 +295,31 @@ export function FinanceTab() {
 
   // Delete Transaction (Admin Master with Bidirectional Sync)
   const handleDeleteTx = async (tx: TransactionItem) => {
+    const qtyToRestore = Math.max(1, Number((tx as any).qty) || 1);
     let warning = `ဤငွေစာရင်း (${tx.name} - ${formatCurrency(tx.amount)}) ကို အပြီးဖျက်မည်လား?`;
     if (tx.repairId) {
-      warning += '\n\n⚠️ သတိပေးချက်: ဤစာရင်းသည် Repair မှ လာခြင်းဖြစ်သဖြင့် Repair ၏ ရငွေကိုပါ 0 ပြန်ဖြစ်စေပါမည်။';
+      warning += `\n\n⚠️ သတိပေးချက်: ဤစာရင်းသည် Repair မှ လာခြင်းဖြစ်သဖြင့် Repair ၏ ${
+        tx.type === 'ထွက်ငွေ' || tx.isRepairCost ? 'အပိုပစ္စည်းအရင်း' : 'ရငွေ'
+      } ကိုပါ 0 ပြန်ဖြစ်စေပါမည်။`;
     } else if (tx.productId) {
-      warning += '\n\n⚠️ သတိပေးချက်: ဤစာရင်းသည် အရောင်းမှ လာခြင်းဖြစ်သဖြင့် စတော့ထဲ ၁ ခု ပြန်တိုးပေးပါမည်။';
+      warning += `\n\n⚠️ သတိပေးချက်: ဤစာရင်းသည် အရောင်းမှ လာခြင်းဖြစ်သဖြင့် စတော့ထဲ ${qtyToRestore} ခု ပြန်တိုးပေးပါမည်။`;
     } else if (tx.transferId) {
       warning += '\n\n⚠️ သတိပေးချက်: ဤစာရင်းသည် လွှဲပြောင်းမှုဖြစ်သဖြင့် နှစ်ဖက်စလုံး တစ်ပြိုင်နက် ပျက်ပါမည်။';
     }
 
-    if (!window.confirm(warning)) return;
+    const ok = await confirmAction({
+      title: 'ငွေစာရင်း အပြီးဖျက်မည်လား?',
+      message: warning,
+      confirmText: 'အပြီးဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
 
     try {
-      await adminMasterDeleteTransaction(tx, profile?.name || 'Admin');
+      await runWithLoading(
+        () => adminMasterDeleteTransaction(tx, profile?.name || 'Admin'),
+        'ငွေစာရင်း ဖျက်သိမ်းပြီး ဆက်စပ်စာရင်းများ ပြန်ညှိနေပါသည်...'
+      );
       showToast('ငွေစာရင်း ဖျက်သိမ်းပြီးပါပြီ');
     } catch (err: any) {
       showToast(err.message || 'ဖျက်ရာတွင် အမှားဖြစ်ပွားပါသည်', 'error');
@@ -293,19 +336,23 @@ export function FinanceTab() {
     }
 
     const dayObj = groupedDays[activeDayDate] || { inc: 0, exp: 0, xOut: 0, xIn: 0, logs: [] };
-    const sysBal = dayObj.inc - dayObj.exp - dayObj.xOut + dayObj.xIn;
+    const daySysBal = dayObj.inc - dayObj.exp - dayObj.xOut + dayObj.xIn;
+    const sysBal = settlementMode === 'till' ? monthStats.currentTillBalance : daySysBal;
     const diff = physCash - sysBal;
 
     let diffText = 'စာရင်းကိုက်ပါသည်';
     if (diff > 0) diffText = `${diff.toLocaleString()} Ks ပိုနေသည်`;
     if (diff < 0) diffText = `${Math.abs(diff).toLocaleString()} Ks လိုနေသည်`;
 
-    if (
-      !window.confirm(
-        `${physCash.toLocaleString()} Ks အပ်နှံမှာ သေချာပါသလား?\n( ${diffText} )`
-      )
-    )
-      return;
+    const ok = await confirmAction({
+      title: '⚖️ Admin ထံ ငွေအပ်နှံမှု အတည်ပြုရန်',
+      message: `အပ်နှံငွေ: ${physCash.toLocaleString()} Ks\n(${
+        settlementMode === 'till' ? 'အံဆွဲလက်ကျန် စုစုပေါင်းနှင့် စစ်ဆေးချက်' : 'ယနေ့တစ်ရက်စာ စာရင်းနှင့် စစ်ဆေးချက်'
+      }: ${diffText})`,
+      confirmText: 'Admin ထံ ငွေအပ်မည်',
+      variant: diff === 0 ? 'success' : 'warning',
+    });
+    if (!ok) return;
 
     setIsSubmitting(true);
     try {
@@ -329,13 +376,17 @@ export function FinanceTab() {
       const parts = activeDayDate.split('-').map(Number);
       const dateObj = new Date(parts[0], parts[1] - 1, parts[2], 20, 0, 0);
 
-      await createTransferPair(
-        'handover',
-        physCash,
-        diff !== 0 ? `(${diffText})` : '',
-        dateObj,
-        extra,
-        profile?.name || 'Staff'
+      await runWithLoading(
+        () =>
+          createTransferPair(
+            'handover',
+            physCash,
+            diff !== 0 ? `(${diffText})` : '',
+            dateObj,
+            extra,
+            profile?.name || 'Staff'
+          ),
+        'Admin ထံ ငွေအပ်နှံမှု စာရင်းသွင်းနေပါသည်...'
       );
 
       showToast('Admin ထံ ငွေအပ်နှံမှု အောင်မြင်ပါသည် ✅');
@@ -356,18 +407,32 @@ export function FinanceTab() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: '💼 ဆိုင်ထဲသို့ ထည့်ငွေ (Owner Fund) သွင်းမည်လား?',
+      message: `Admin ပိုက်ဆံအိတ်မှ ဆိုင်အံဆွဲထဲသို့ ${formatCurrency(amt)} ထည့်သွင်းပါမည်။${
+        ownerFundNote.trim() ? `\nမှတ်ချက်: ${ownerFundNote.trim()}` : ''
+      }`,
+      confirmText: 'ဆိုင်ထဲထည့်မည်',
+      variant: 'info',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
       const parts = activeDayDate.split('-').map(Number);
       const dateObj = new Date(parts[0], parts[1] - 1, parts[2], 20, 0, 0);
 
-      await createTransferPair(
-        'ownerfund',
-        amt,
-        ownerFundNote.trim(),
-        dateObj,
-        null,
-        profile?.name || 'Admin'
+      await runWithLoading(
+        () =>
+          createTransferPair(
+            'ownerfund',
+            amt,
+            ownerFundNote.trim(),
+            dateObj,
+            null,
+            profile?.name || 'Admin'
+          ),
+        'ဆိုင်ထဲသို့ ထည့်ငွေ Online စာရင်းသွင်းနေပါသည်...'
       );
 
       showToast('ဆိုင်ထဲသို့ ထည့်ငွေ ထည့်သွင်းပြီးပါပြီ 💼');
@@ -940,34 +1005,80 @@ export function FinanceTab() {
             </div>
 
             <div className="mt-4 space-y-4">
-              {/* System Balance Display */}
+              {/* System Balance Display with Mode Toggle */}
               {(() => {
                 const dayObj = groupedDays[activeDayDate] || { inc: 0, exp: 0, xOut: 0, xIn: 0, logs: [] };
-                const sysBal = dayObj.inc - dayObj.exp - dayObj.xOut + dayObj.xIn;
+                const daySysBal = dayObj.inc - dayObj.exp - dayObj.xOut + dayObj.xIn;
+                const sysBal = settlementMode === 'till' ? monthStats.currentTillBalance : daySysBal;
                 const physCash = Number(physicalCashInput);
                 const hasInput = physicalCashInput.trim() !== '' && !isNaN(physCash) && physCash > 0;
                 const diff = physCash - sysBal;
 
                 return (
                   <>
+                    {/* Mode Switcher: Today Only vs Cumulative Drawer Balance */}
+                    <div className="grid grid-cols-2 gap-1.5 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setSettlementMode('day')}
+                        className={`py-2 px-2 rounded-xl transition-all ${
+                          settlementMode === 'day'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        📅 ယနေ့တစ်ရက်စာ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSettlementMode('till')}
+                        className={`py-2 px-2 rounded-xl transition-all ${
+                          settlementMode === 'till'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        🗄️ အံဆွဲလက်ကျန် စုစုပေါင်း
+                      </button>
+                    </div>
+
                     <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 text-center">
                       <span className="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                        စနစ်တွင်း လက်ကျန်ငွေ (System Balance)
+                        {settlementMode === 'till'
+                          ? 'အံဆွဲလက်ကျန် စုစုပေါင်း (Cumulative Drawer Balance)'
+                          : `${activeDayDate} တစ်ရက်စာ လက်ကျန် (Today's Balance)`}
                       </span>
                       <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400 tabular-nums">
                         {formatCurrency(sysBal)}
                       </span>
-                      <span className="text-[11px] text-slate-400 block mt-1">
-                        (ဝင် {dayObj.inc.toLocaleString()} − ထွက် {dayObj.exp.toLocaleString()}
-                        {dayObj.xOut ? ` − အပ် ${dayObj.xOut.toLocaleString()}` : ''}
-                        {dayObj.xIn ? ` + ထည့် ${dayObj.xIn.toLocaleString()}` : ''})
-                      </span>
+                      {settlementMode === 'day' ? (
+                        <span className="text-[11px] text-slate-400 block mt-1">
+                          (ဝင် {dayObj.inc.toLocaleString()} − ထွက် {dayObj.exp.toLocaleString()}
+                          {dayObj.xOut ? ` − အပ် ${dayObj.xOut.toLocaleString()}` : ''}
+                          {dayObj.xIn ? ` + ထည့် ${dayObj.xIn.toLocaleString()}` : ''})
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 block mt-1">
+                          (ယခင်ရက် လက်ကျန်များအပါအဝင် လက်ရှိ အံဆွဲထဲရှိရမည့် စုစုပေါင်းငွေ)
+                        </span>
+                      )}
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        လက်ထဲတွင် တကယ်ရှိသောငွေ (Physical Cash Ks) *
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                          လက်ထဲတွင် တကယ်ရှိသောငွေ (Physical Cash Ks) *
+                        </label>
+                        {sysBal > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPhysicalCashInput(String(sysBal))}
+                            className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                          >
+                            စာရင်းအတိုင်း ဖြည့်မည် ({sysBal.toLocaleString()})
+                          </button>
+                        )}
+                      </div>
                       <input
                         type="number"
                         value={physicalCashInput}

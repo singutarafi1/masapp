@@ -40,7 +40,7 @@ const CAT_COLORS = [
 
 export function PersonalWallet() {
   const { profile } = useAuth();
-  const { showToast } = useToast();
+  const { showToast, confirmAction, runWithLoading } = useToast();
   const { t } = useSettings();
 
   const [personalTx, setPersonalTx] = useState<TransactionItem[]>([]);
@@ -222,19 +222,31 @@ export function PersonalWallet() {
       return;
     }
 
+    const ok = await confirmAction({
+      title: `ကိုယ်ပိုင် ${formType} စာရင်းသိမ်းမည်လား?`,
+      message: `${formName || (formType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ')} (${formSubGroup || 'အထွေထွေ'})\nပမာဏ: ${amt.toLocaleString()} Ks`,
+      confirmText: 'စာရင်းသိမ်းမည်',
+      variant: formType === 'ဝင်ငွေ' ? 'success' : 'warning',
+    });
+    if (!ok) return;
+
     setIsSubmitting(true);
     try {
       const parts = formDate.split('-').map(Number);
       const txDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
 
-      await addPersonalTransaction({
-        type: formType,
-        amount: amt,
-        subGroup: formSubGroup || 'အထွေထွေ',
-        name: formName || (formType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ'),
-        date: txDate,
-        actorName: profile?.name || 'Admin',
-      });
+      await runWithLoading(
+        () =>
+          addPersonalTransaction({
+            type: formType,
+            amount: amt,
+            subGroup: formSubGroup || 'အထွေထွေ',
+            name: formName || (formType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ'),
+            date: txDate,
+            actorName: profile?.name || 'Admin',
+          }),
+        'ကိုယ်ပိုင်ငွေစာရင်း Online သိမ်းဆည်းနေပါသည်...'
+      );
 
       showToast('ကိုယ်ပိုင် ငွေစာရင်း ထည့်သွင်းပြီးပါပြီ', 'success');
       setIsAddSheetOpen(false);
@@ -248,11 +260,21 @@ export function PersonalWallet() {
   };
 
   const handleDeletePersonalTx = async (tx: TransactionItem) => {
-    if (!window.confirm(`ဤ "${tx.name}" (${Number(tx.amount).toLocaleString()} MMK) စာရင်းကို ဖျက်မည်မှာ သေချာပါသလား?`)) {
-      return;
-    }
+    const ok = await confirmAction({
+      title: 'ကိုယ်ပိုင် ငွေစာရင်း ဖျက်မည်လား?',
+      message: `ဤ "${tx.name}" (${Number(tx.amount).toLocaleString()} MMK) စာရင်းကို အပြီးဖျက်မည်မှာ သေချာပါသလား?${
+        tx.transferId ? '\n(ဆိုင်အံဆွဲနှင့် ချိတ်ဆက်ထားသော လွှဲပြောင်းမှုဖြစ်ပါက နှစ်ဖက်စလုံး ပျက်ပါမည်)' : ''
+      }`,
+      confirmText: 'အပြီးဖျက်မည်',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
     try {
-      await adminMasterDeleteTransaction(tx, profile?.name || 'Admin');
+      await runWithLoading(
+        () => adminMasterDeleteTransaction(tx, profile?.name || 'Admin'),
+        'ကိုယ်ပိုင်ငွေစာရင်း ဖျက်သိမ်းနေပါသည်...'
+      );
       showToast('စာရင်းဖျက်သိမ်းပြီးပါပြီ', 'success');
     } catch (err: any) {
       showToast(err.message || 'ဖျက်၍မရပါ', 'error');
@@ -278,21 +300,34 @@ export function PersonalWallet() {
       showToast('ငွေပမာဏ မှန်ကန်စွာ ထည့်ပါ', 'error');
       return;
     }
+
+    const ok = await confirmAction({
+      title: 'ကိုယ်ပိုင်ငွေစာရင်း ပြင်ဆင်မည်လား?',
+      message: `"${editFormName.trim() || editFormType}" ကို ${amt.toLocaleString()} Ks သို့ ပြင်ဆင်သိမ်းဆည်းပါမည်။`,
+      confirmText: 'ပြင်ဆင်သိမ်းမည်',
+      variant: 'info',
+    });
+    if (!ok) return;
+
     setIsEditSubmitting(true);
     try {
       const parts = editFormDate.split('-').map(Number);
       const txDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
 
-      await adminMasterEditTransaction(
-        editingTx.id,
-        {
-          name: editFormName.trim() || (editFormType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ'),
-          amount: amt,
-          type: editFormType,
-          group: 'Personal',
-          date: txDate,
-        },
-        profile?.name || 'Admin'
+      await runWithLoading(
+        () =>
+          adminMasterEditTransaction(
+            editingTx.id,
+            {
+              name: editFormName.trim() || (editFormType === 'ဝင်ငွေ' ? 'ပုဂ္ဂိုလ်ရေး ဝင်ငွေ' : 'ပုဂ္ဂိုလ်ရေး သုံးစွဲငွေ'),
+              amount: amt,
+              type: editFormType,
+              group: 'Personal',
+              date: txDate,
+            },
+            profile?.name || 'Admin'
+          ),
+        'ကိုယ်ပိုင်ငွေစာရင်း ပြင်ဆင်ချက် သိမ်းဆည်းနေပါသည်...'
       );
 
       showToast('ကိုယ်ပိုင် ငွေစာရင်း ပြင်ဆင်ပြီးပါပြီ', 'success');
